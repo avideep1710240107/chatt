@@ -1,0 +1,3858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Instagram" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="Instagram-style Direct Messages" />
+  <title>Instagram • Direct</title>
+
+  <!-- Inline SVG Instagram-Style Favicon (No external asset dependency) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='ig' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%23feda75'/%3E%3Cstop offset='0.3' stop-color='%23fa7e1e'/%3E%3Cstop offset='0.6' stop-color='%23d62976'/%3E%3Cstop offset='1' stop-color='%234f5bd5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23ig)'/%3E%3Crect x='14' y='14' width='36' height='36' rx='10' fill='none' stroke='%23fff' stroke-width='4.2'/%3E%3Ccircle cx='32' cy='32' r='8.5' fill='none' stroke='%23fff' stroke-width='4.2'/%3E%3Ccircle cx='43' cy='21' r='2.6' fill='%23fff'/%3E%3C/svg%3E" />
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Exact Instagram Android Typography: Roboto + Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: 'Roboto', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      background-color: #050507;
+      color: #ffffff;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    /* Desktop: Slim Bezel-less Android Phone Frame (412x892 max) with Ambient Glow */
+    .phone-frame {
+      width: 100%;
+      height: 100dvh;
+      position: relative;
+      overflow: hidden;
+      background-color: #000000;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      transition: width 0.25s ease, height 0.25s ease, border-radius 0.25s ease;
+    }
+
+    @media (min-width: 481px) {
+      body {
+        background: radial-gradient(circle at 50% 35%, #1c0c2a 0%, #09060d 55%, #040406 100%);
+      }
+      .phone-frame {
+        width: min(100vw, 412px);
+        height: min(94dvh, 892px);
+        border-radius: 38px;
+        border: 1.5px solid rgba(255, 255, 255, 0.14);
+        box-shadow:
+          0 32px 110px rgba(0, 0, 0, 0.92),
+          0 0 70px rgba(155, 32, 185, 0.18),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+      }
+      .phone-frame.desktop-expanded {
+        width: min(100vw, 460px);
+        height: 98dvh;
+        border-radius: 26px;
+      }
+    }
+
+    /* Two-Screen Hardware-Accelerated Transitions */
+    .screen {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.24s ease;
+      will-change: transform;
+    }
+
+    #inboxScreen {
+      background: #000000;
+      z-index: 10;
+      transform: translateX(0);
+    }
+    #inboxScreen.pushed-back {
+      transform: translateX(-26%);
+      opacity: 0.42;
+      pointer-events: none;
+    }
+
+    #chatScreen {
+      z-index: 20;
+      transform: translateX(100%);
+    }
+    #chatScreen.active {
+      transform: translateX(0);
+    }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    .chat-scroll {
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-y: contain;
+    }
+    .chat-scroll::-webkit-scrollbar { width: 2.5px; }
+    .chat-scroll::-webkit-scrollbar-track { background: transparent; }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.22);
+      border-radius: 99px;
+    }
+
+    /* ===================================================================== */
+    /* 5 PIXEL-ACCURATE INSTAGRAM DM THEMES                                  */
+    /* ===================================================================== */
+    #chatScreen[data-theme="love"] {
+      --chat-bg: linear-gradient(168deg, #2d083e 0%, #4b0f5b 36%, #741582 70%, #480d57 100%);
+      --header-bg: linear-gradient(180deg, rgba(45, 8, 62, 0.9) 0%, rgba(75, 15, 91, 0.72) 78%, rgba(75, 15, 91, 0) 100%);
+      --recv-bg: rgba(116, 48, 154, 0.72);
+      --recv-color: #ffffff;
+      --sent-bg: #fae8f6;
+      --sent-color: #864e82;
+      --sent-shadow: 0 0 14px rgba(255, 200, 245, 0.35), 0 1px 6px rgba(42, 6, 62, 0.2);
+      --accent-btn-bg: linear-gradient(135deg, #fae8f6 0%, #eed2f0 100%);
+      --accent-btn-color: #6b2482;
+      --accent-btn-shadow: 0 0 15px rgba(255, 205, 248, 0.45);
+      --input-bg: rgba(38, 10, 56, 0.84);
+      --quoted-recv-bg: rgba(116, 48, 154, 0.45);
+      --quoted-sent-bg: rgba(250, 232, 246, 0.42);
+      --quoted-sent-color: #4f1c59;
+      --reel-btn-bg: rgba(122, 62, 166, 0.62);
+      --react-pill-bg: #3e0d5a;
+    }
+
+    #chatScreen[data-theme="classic"] {
+      --chat-bg: #000000;
+      --header-bg: rgba(0, 0, 0, 0.9);
+      --recv-bg: #262626;
+      --recv-color: #f5f5f5;
+      --sent-bg: linear-gradient(135deg, #3797F0 0%, #6355E8 55%, #833AB4 100%);
+      --sent-color: #ffffff;
+      --sent-shadow: 0 2px 10px rgba(55, 151, 240, 0.22);
+      --accent-btn-bg: linear-gradient(135deg, #3797F0 0%, #833AB4 100%);
+      --accent-btn-color: #ffffff;
+      --accent-btn-shadow: 0 0 14px rgba(55, 151, 240, 0.35);
+      --input-bg: rgba(38, 38, 38, 0.94);
+      --quoted-recv-bg: rgba(255, 255, 255, 0.12);
+      --quoted-sent-bg: rgba(55, 151, 240, 0.26);
+      --quoted-sent-color: #e2efff;
+      --reel-btn-bg: rgba(38, 38, 38, 0.82);
+      --react-pill-bg: #1e1e1e;
+    }
+
+    #chatScreen[data-theme="sunset"] {
+      --chat-bg: linear-gradient(165deg, #21081c 0%, #4b1236 45%, #7c1f49 78%, #3c0f2b 100%);
+      --header-bg: linear-gradient(180deg, rgba(33, 8, 28, 0.88) 0%, rgba(75, 18, 54, 0.72) 80%, rgba(75, 18, 54, 0) 100%);
+      --recv-bg: rgba(112, 34, 70, 0.76);
+      --recv-color: #ffffff;
+      --sent-bg: linear-gradient(135deg, #ff5e7e 0%, #e12d78 100%);
+      --sent-color: #ffffff;
+      --sent-shadow: 0 3px 14px rgba(255, 94, 126, 0.32);
+      --accent-btn-bg: linear-gradient(135deg, #ff6d88 0%, #e12d78 100%);
+      --accent-btn-color: #ffffff;
+      --accent-btn-shadow: 0 0 16px rgba(255, 109, 136, 0.4);
+      --input-bg: rgba(45, 10, 34, 0.84);
+      --quoted-recv-bg: rgba(145, 45, 90, 0.42);
+      --quoted-sent-bg: rgba(255, 94, 126, 0.3);
+      --quoted-sent-color: #ffe3ea;
+      --reel-btn-bg: rgba(112, 34, 70, 0.65);
+      --react-pill-bg: #450f30;
+    }
+
+    #chatScreen[data-theme="midnight"] {
+      --chat-bg: linear-gradient(170deg, #050714 0%, #0d1330 48%, #181f4a 82%, #080b1e 100%);
+      --header-bg: linear-gradient(180deg, rgba(5, 7, 20, 0.9) 0%, rgba(13, 19, 48, 0.75) 80%, rgba(13, 19, 48, 0) 100%);
+      --recv-bg: rgba(38, 48, 92, 0.74);
+      --recv-color: #f0f4ff;
+      --sent-bg: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+      --sent-color: #ffffff;
+      --sent-shadow: 0 3px 14px rgba(79, 70, 229, 0.34);
+      --accent-btn-bg: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+      --accent-btn-color: #ffffff;
+      --accent-btn-shadow: 0 0 16px rgba(99, 102, 241, 0.42);
+      --input-bg: rgba(14, 19, 45, 0.88);
+      --quoted-recv-bg: rgba(56, 70, 125, 0.42);
+      --quoted-sent-bg: rgba(79, 70, 229, 0.3);
+      --quoted-sent-color: #e0e7ff;
+      --reel-btn-bg: rgba(38, 48, 92, 0.7);
+      --react-pill-bg: #161d40;
+    }
+
+    #chatScreen[data-theme="minimal"] {
+      --chat-bg: #0E1114;
+      --header-bg: rgba(14, 17, 20, 0.9);
+      --recv-bg: #1F242A;
+      --recv-color: #f1f5f9;
+      --sent-bg: linear-gradient(135deg, #0D9488 0%, #059669 100%);
+      --sent-color: #ffffff;
+      --sent-shadow: 0 2px 12px rgba(13, 148, 136, 0.28);
+      --accent-btn-bg: linear-gradient(135deg, #14B8A6 0%, #0D9488 100%);
+      --accent-btn-color: #ffffff;
+      --accent-btn-shadow: 0 0 14px rgba(20, 184, 166, 0.38);
+      --input-bg: rgba(28, 33, 39, 0.92);
+      --quoted-recv-bg: rgba(255, 255, 255, 0.08);
+      --quoted-sent-bg: rgba(13, 148, 136, 0.26);
+      --quoted-sent-color: #ccfbf1;
+      --reel-btn-bg: rgba(31, 36, 42, 0.85);
+      --react-pill-bg: #1b2229;
+    }
+
+    #chatScreen { background: var(--chat-bg); }
+
+    .ig-header {
+      background: var(--header-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    /* Exact Instagram Android Header Optical Sizing */
+    .ig-header-name {
+      font-size: 15.5px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: #ffffff;
+      line-height: 1.18;
+    }
+    .ig-header-handle {
+      font-size: 12px;
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.78);
+      line-height: 1.18;
+    }
+
+    /* Exact Instagram Android Chat Bubbles */
+    .bubble-received {
+      background: var(--recv-bg);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: var(--recv-color);
+      font-size: 15px;
+      font-weight: 400;
+      line-height: 1.32;
+      letter-spacing: -0.005em;
+      padding: 8.5px 14px;
+      border-radius: 20px;
+      max-width: 75%;
+      word-wrap: break-word;
+      position: relative;
+      transition: transform 0.12s ease;
+      user-select: none;
+      box-shadow: 0 1px 8px rgba(0, 0, 0, 0.18);
+    }
+    .bubble-received:active { transform: scale(0.975); }
+
+    .bubble-sent {
+      background: var(--sent-bg);
+      color: var(--sent-color);
+      font-size: 15px;
+      font-weight: 400;
+      line-height: 1.32;
+      letter-spacing: -0.005em;
+      padding: 8.5px 14px;
+      border-radius: 20px;
+      max-width: 76%;
+      word-wrap: break-word;
+      box-shadow: var(--sent-shadow);
+      position: relative;
+      transition: transform 0.12s ease;
+      user-select: none;
+    }
+    .bubble-sent:active { transform: scale(0.975); }
+
+    /* Grouped Bubble Corner Radius: 20px outer, 4px inner stacked */
+    .recv-first  { border-bottom-left-radius: 4px; }
+    .recv-middle { border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+    .recv-last   { border-top-left-radius: 4px; }
+
+    .sent-first  { border-bottom-right-radius: 4px; }
+    .sent-middle { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+    .sent-last   { border-top-right-radius: 4px; }
+
+    .quoted-received {
+      background: var(--quoted-recv-bg);
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 13.5px;
+      padding: 6.5px 13px;
+      border-radius: 18px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .quoted-sent {
+      background: var(--quoted-sent-bg);
+      color: var(--quoted-sent-color);
+      font-size: 13.5px;
+      padding: 6.5px 13px;
+      border-radius: 18px;
+    }
+
+    /* Input Bar */
+    .input-pill {
+      background: var(--input-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 26px;
+      transition: border-color 0.2s ease;
+    }
+    .input-pill:focus-within { border-color: rgba(255, 255, 255, 0.26); }
+
+    .accent-glow-btn {
+      background: var(--accent-btn-bg);
+      color: var(--accent-btn-color);
+      box-shadow: var(--accent-btn-shadow);
+    }
+
+    /* Exact Portrait 212px x 356px Chat Reel Card */
+    .reel-card {
+      width: 212px;
+      height: 356px;
+      border-radius: 18px;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      background: #140820;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.46), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      transition: transform 0.14s ease;
+    }
+    .reel-card:active { transform: scale(0.975); }
+    .reel-card canvas { display: block; width: 100%; height: 100%; }
+
+    .reel-action-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--reel-btn-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      cursor: pointer;
+      transition: transform 0.14s ease, filter 0.14s ease;
+    }
+    .reel-action-btn:hover { filter: brightness(1.16); }
+    .reel-action-btn:active { transform: scale(0.88); }
+
+    /* Instagram Notes Bubble */
+    .note-bubble {
+      position: relative;
+      background: #262626;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 5px 9px;
+      font-size: 11px;
+      line-height: 1.22;
+      color: #f5f5f5;
+      max-width: 84px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .note-bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -4px;
+      left: 16px;
+      width: 8px;
+      height: 8px;
+      background: #262626;
+      border-radius: 50%;
+    }
+
+    .ig-story-ring {
+      background: linear-gradient(45deg, #feda75 0%, #fa7e1e 25%, #d62976 55%, #962fbf 80%, #4f5bd5 100%);
+      padding: 2px;
+    }
+
+    /* Reels Marquee Audio Track & Spinning Album Disc */
+    @keyframes audioMarquee {
+      0% { transform: translateX(0%); }
+      100% { transform: translateX(-50%); }
+    }
+    .marquee-track {
+      display: inline-flex;
+      white-space: nowrap;
+      animation: audioMarquee 9s linear infinite;
+    }
+
+    @keyframes discSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .album-disc-spin {
+      animation: discSpin 5.5s linear infinite;
+    }
+
+    /* Typing Indicator */
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+      30% { transform: translateY(-4.5px); opacity: 1; }
+    }
+    .typing-dot {
+      width: 6.5px;
+      height: 6.5px;
+      border-radius: 50%;
+      background: #ffffff;
+      display: inline-block;
+      animation: typingBounce 1.2s infinite ease-in-out;
+    }
+    .typing-dot:nth-child(2) { animation-delay: 0.16s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.32s; }
+
+    /* Micro-Animations */
+    @keyframes popIn {
+      0% { transform: scale(0.25); opacity: 0; }
+      68% { transform: scale(1.22); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .reaction-pop { animation: popIn 0.24s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+    @keyframes msgSlide {
+      from { opacity: 0; transform: translateY(7px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .msg-appear { animation: msgSlide 0.19s ease-out; }
+
+    @keyframes sheetSlideUp {
+      from { transform: translateY(100%); opacity: 0.78; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .sheet-animate { animation: sheetSlideUp 0.24s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+    @keyframes heartBurst {
+      0% { transform: scale(0.2); opacity: 0; }
+      25% { transform: scale(1.28); opacity: 1; }
+      70% { transform: scale(0.98); opacity: 1; }
+      100% { transform: scale(1.42); opacity: 0; }
+    }
+    .heart-burst-anim { animation: heartBurst 0.82s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+    @keyframes speakerPulse {
+      0% { transform: scale(0.7); opacity: 0; }
+      20% { transform: scale(1); opacity: 1; }
+      75% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.1); opacity: 0; }
+    }
+    .speaker-flash-anim { animation: speakerPulse 0.9s ease-out forwards; }
+
+    @keyframes bannerDrop {
+      from { transform: translate(-50%, -120%); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+    .banner-drop { animation: bannerDrop 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+    @keyframes starTwinkle {
+      0%, 100% { opacity: 0.35; }
+      50% { opacity: 1; }
+    }
+    .twinkle { animation: starTwinkle 3.2s infinite ease-in-out; }
+  </style>
+</head>
+<body class="flex items-center justify-center">
+
+  <!-- Desktop-only Subtle Full Mobile View Toggle -->
+  <button id="desktopViewToggle" class="hidden sm:flex fixed top-4 right-4 z-50 items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/15 text-[11.5px] font-medium text-white/85 backdrop-blur-md transition cursor-pointer" title="Toggle Phone Frame Size">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <rect x="6" y="2" width="12" height="20" rx="2.5" />
+      <line x1="11" y1="18" x2="13" y2="18" stroke-linecap="round" />
+    </svg>
+    <span id="desktopViewToggleText">Full Mobile View</span>
+  </button>
+
+  <!-- Realistic Android Phone Frame (Edge-to-Edge on Mobile) -->
+  <div id="app" class="phone-frame">
+
+    <!-- Hidden File Input for Gallery PFP Upload -->
+    <input type="file" id="avatarUpload" accept="image/*" class="hidden" />
+    <input type="file" id="chatPhotoUpload" accept="image/*" class="hidden" />
+
+    <!-- =================================================================== -->
+    <!-- INSTAGRAM PUSH NOTIFICATION BANNER (BACKGROUND AUTO-DM)             -->
+    <!-- =================================================================== -->
+    <div id="pushBanner" class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[388px] rounded-2xl bg-[#1f1f24]/95 backdrop-blur-xl border border-white/15 px-3.5 py-2.5 shadow-2xl cursor-pointer flex items-center gap-3 banner-drop">
+      <div id="pushBannerAvatar" class="w-10 h-10 rounded-full overflow-hidden shrink-0 ring-1 ring-white/20"></div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between gap-2">
+          <span id="pushBannerName" class="text-[13.5px] font-semibold text-white truncate">Rohan (Bro)</span>
+          <span class="text-[10.5px] text-white/55 shrink-0">now</span>
+        </div>
+        <p id="pushBannerText" class="text-[12.5px] text-white/85 truncate mt-0.5">yo bro you alive??</p>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- SCREEN 2: OLED BLACK INSTAGRAM DM INBOX                             -->
+    <!-- =================================================================== -->
+    <section id="inboxScreen" class="screen">
+      <!-- Top Bar -->
+      <div class="flex items-center justify-between px-4 pt-3.5 pb-2.5 shrink-0">
+        <button onclick="showToast('Logged in as @your_account')" class="flex items-center gap-1.5 text-white active:opacity-75 transition">
+          <span class="text-[20px] font-bold tracking-[-0.02em]">your_account</span>
+          <svg class="w-4 h-4 mt-0.5 text-white/85" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+          </svg>
+          <span class="w-2 h-2 rounded-full bg-[#ff3040] ml-0.5"></span>
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button id="openNewDmBtn" class="p-1.5 text-white hover:bg-white/10 rounded-full active:scale-90 transition" title="New Custom DM" aria-label="New Custom DM">
+            <svg class="w-[23px] h-[23px]" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search Pill Bar ("Ask Meta AI or Search") -->
+      <div class="px-4 pb-3 shrink-0">
+        <div class="flex items-center gap-2.5 bg-[#262626] rounded-full px-3.5 py-2 border border-white/[0.04]">
+          <span class="w-5 h-5 rounded-full shrink-0 border-[2.2px] border-transparent" style="background: linear-gradient(#262626, #262626) padding-box, linear-gradient(135deg, #38bdf8, #818cf8, #ec4899) border-box;"></span>
+          <input
+            id="inboxSearchInput"
+            type="text"
+            placeholder="Ask Meta AI or Search"
+            class="flex-1 bg-transparent text-[14.5px] text-white placeholder-[#a8a8a8] focus:outline-none min-w-0"
+          />
+          <button id="clearSearchBtn" class="hidden text-[#a8a8a8] hover:text-white text-xs px-1">✕</button>
+        </div>
+      </div>
+
+      <!-- Scrollable Inbox Content -->
+      <div class="flex-1 overflow-y-auto no-scrollbar pb-5">
+        <!-- 24h Instagram Notes Row -->
+        <div id="notesRow" class="flex items-end gap-4 px-4 pt-6 pb-3 overflow-x-auto no-scrollbar"></div>
+
+        <!-- Tabs: Primary | General | Requests -->
+        <div class="flex items-center gap-2 px-4 pt-1 pb-3">
+          <button data-tab="primary" class="inbox-tab-btn px-4 py-1.5 rounded-xl text-[13px] font-semibold transition bg-white text-black">Primary</button>
+          <button data-tab="general" class="inbox-tab-btn px-4 py-1.5 rounded-xl text-[13px] font-semibold transition bg-[#262626] text-white/90">General</button>
+          <button data-tab="requests" class="inbox-tab-btn px-4 py-1.5 rounded-xl text-[13px] font-semibold transition bg-[#262626] text-white/90">Requests</button>
+        </div>
+
+        <!-- Messages Header -->
+        <div class="flex items-center justify-between px-4 pb-2">
+          <span class="text-[14.5px] font-bold text-white">Messages</span>
+          <span class="text-[11.5px] text-[#0095f6] font-medium">24h Memory Active</span>
+        </div>
+
+        <!-- Thread List -->
+        <div id="threadList" class="divide-y divide-white/[0.03]"></div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- SCREEN 1: ACTIVE DM CHAT (DEFAULT ON LOAD)                          -->
+    <!-- =================================================================== -->
+    <section id="chatScreen" class="screen active" data-theme="love">
+
+      <!-- Theme Wallpaper Layer -->
+      <div id="themeWallpaperLayer" class="absolute inset-0 pointer-events-none select-none z-0 overflow-hidden"></div>
+
+      <!-- Pixel-Accurate Instagram Android DM Header -->
+      <header class="ig-header relative z-20 flex items-center justify-between px-3 pt-3 pb-2.5 shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+          <!-- Back Arrow + Unread Badge -->
+          <button id="backToInboxBtn" class="relative p-1.5 -ml-1 text-white hover:bg-white/10 rounded-full transition active:scale-90 shrink-0" aria-label="Back to Inbox">
+            <svg class="w-[24px] h-[24px]" fill="none" stroke="currentColor" stroke-width="2.1" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5m0 0l6.5-6.5M5 12l6.5 6.5" />
+            </svg>
+            <span id="backUnreadBadge" class="hidden absolute top-0.5 right-0 min-w-[16px] h-[16px] px-1 rounded-full bg-[#ff3040] text-[10px] font-bold text-white flex items-center justify-center leading-none shadow">1</span>
+          </button>
+
+          <!-- 34px Clickable Partner PFP -->
+          <button id="headerAvatarBtn" class="relative w-[34px] h-[34px] rounded-full overflow-hidden shrink-0 ring-1 ring-white/25 cursor-pointer hover:brightness-110 active:scale-95 transition" title="Tap to change profile photo" aria-label="Change profile photo">
+            <div id="headerAvatarContainer" class="w-full h-full"></div>
+            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-[2px] ring-black/60"></span>
+          </button>
+
+          <!-- Display Name & Username -->
+          <div id="headerProfileText" class="flex flex-col min-w-0 cursor-pointer ml-0.5">
+            <span id="partnerNameDisplay" class="ig-header-name truncate">My darlin...</span>
+            <span id="partnerSubDisplay" class="ig-header-handle truncate mt-[1px]">_sugar0chw...</span>
+          </div>
+        </div>
+
+        <!-- Right Header Icons: Blend/Theme, Voice Call, Video Call, Info -->
+        <div class="flex items-center gap-0.5 text-white shrink-0">
+          <!-- Instagram Blend / Reels Together Icon -->
+          <button id="headerBlendBtn" class="p-1.5 hover:bg-white/10 rounded-full transition active:scale-90" title="Drop a Reel / Blend" aria-label="Blend Reels">
+            <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9.5" cy="13" r="5.5" />
+              <circle cx="15" cy="10.5" r="5.5" />
+              <circle cx="8" cy="12" r="0.6" fill="currentColor" stroke="none" />
+              <circle cx="11" cy="12" r="0.6" fill="currentColor" stroke="none" />
+              <path d="M8 14.5c.9.8 2.1.8 3 0" />
+            </svg>
+          </button>
+          <!-- Voice Call -->
+          <button onclick="showToast('Calling ' + getActiveChat().name + '...')" class="p-1.5 hover:bg-white/10 rounded-full transition active:scale-90" aria-label="Audio Call">
+            <svg class="w-[20px] h-[20px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+          </button>
+          <!-- Video Call -->
+          <button onclick="showToast('Starting video chat with ' + getActiveChat().name + '...')" class="p-1.5 hover:bg-white/10 rounded-full transition active:scale-90" aria-label="Video Call">
+            <svg class="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2.5" y="6" width="13.5" height="12" rx="3.2" />
+              <path d="M16 10.2l5.2-3.1a.6.6 0 0 1 .9.52v8.76a.6.6 0 0 1-.9.52L16 13.8v-3.6z" />
+            </svg>
+          </button>
+          <!-- Chat Info / Settings / Deploy AI Key -->
+          <button id="openChatSettingsBtn" class="p-1.5 hover:bg-white/10 rounded-full transition active:scale-90" title="Chat Settings, Themes & AI Setup" aria-label="Chat Info">
+            <svg class="w-[21px] h-[21px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9.5" />
+              <path d="M12 16v-4.5" />
+              <circle cx="12" cy="8" r="0.85" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Scrollable Chat Messages -->
+      <main id="chatContainer" class="relative z-10 flex-1 overflow-y-auto chat-scroll px-3 pt-1 pb-4"></main>
+
+      <!-- Floating Emoji Reaction Picker -->
+      <div id="emojiPickerPopover" class="hidden absolute z-40 left-1/2 -translate-x-1/2 bottom-[84px] px-3 py-1.5 rounded-full bg-[#1e1e24]/95 backdrop-blur-xl border border-white/15 shadow-2xl flex items-center gap-2 reaction-pop">
+        <button data-emoji="❤️" class="emoji-pick-btn text-xl hover:scale-125 active:scale-95 transition p-0.5">❤️</button>
+        <button data-emoji="😂" class="emoji-pick-btn text-xl hover:scale-125 active:scale-95 transition p-0.5">😂</button>
+        <button data-emoji="😮" class="emoji-pick-btn text-xl hover:scale-125 active:scale-95 transition p-0.5">😮</button>
+        <button data-emoji="😢" class="emoji-pick-btn text-xl hover:scale-125 active:scale-95 transition p-0.5">😢</button>
+        <button data-emoji="😡" class="emoji-pick-btn text-xl hover:scale-125 active:scale-95 transition p-0.5">😡</button>
+        <button data-emoji="👍" class="emoji-pick-btn text-xl hover:scale-125 active:scale-95 transition p-0.5">👍</button>
+        <button id="replyFromPickerBtn" class="ml-1 pl-2 border-l border-white/15 text-xs font-semibold text-white/90 hover:text-white">Reply</button>
+      </div>
+
+      <!-- Reply Preview Bar -->
+      <div id="replyBar" class="hidden relative z-20 mx-3 mb-1.5 px-3.5 py-2 rounded-2xl bg-black/75 backdrop-blur-xl border border-white/15 flex items-center justify-between gap-2 text-xs shadow-lg">
+        <div class="min-w-0">
+          <div class="text-white/95 font-semibold" id="replyBarTitle">Replying to My darlin...</div>
+          <div class="text-white/75 truncate mt-0.5" id="replyBarText"></div>
+        </div>
+        <button id="cancelReplyBtn" class="p-1 text-white/70 hover:text-white rounded-full">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Quick Actions Popover -->
+      <div id="quickMenu" class="hidden absolute bottom-[76px] left-3 right-3 z-30 rounded-3xl bg-[#1a1424]/96 backdrop-blur-2xl border border-white/15 p-3 shadow-2xl">
+        <div class="flex items-center justify-between px-2 pb-2 border-b border-white/10">
+          <span class="text-[11px] uppercase tracking-wider text-white/70 font-semibold">Quick Actions</span>
+          <span id="cadenceStatusBadge" class="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-white/10 text-white/90 border border-white/10">
+            Next Reel Drop: in 10 chats
+          </span>
+        </div>
+        <div class="grid grid-cols-1 gap-1 mt-2">
+          <button id="forceReelBtn" class="flex items-center gap-3 w-full px-3 py-2.5 rounded-2xl text-left text-sm text-white hover:bg-white/10 active:bg-white/15 transition">
+            <span class="text-lg">🎬</span>
+            <div>
+              <div class="font-medium leading-tight">Send a Fake Reel Now</div>
+              <div class="text-[11px] text-white/60">Partner drops a cinematic 60fps Reel immediately</div>
+            </div>
+          </button>
+          <button id="changePhotoMenuBtn" class="flex items-center gap-3 w-full px-3 py-2.5 rounded-2xl text-left text-sm text-white hover:bg-white/10 active:bg-white/15 transition">
+            <span class="text-lg">📷</span>
+            <div>
+              <div class="font-medium leading-tight">Change Profile Photo</div>
+              <div class="text-[11px] text-white/60">Gallery upload, image URL, or default</div>
+            </div>
+          </button>
+          <button id="openThemeMenuBtn" class="flex items-center gap-3 w-full px-3 py-2.5 rounded-2xl text-left text-sm text-white hover:bg-white/10 active:bg-white/15 transition">
+            <span class="text-lg">⚙️</span>
+            <div>
+              <div class="font-medium leading-tight">Themes, Auto-AI & Deploy Settings</div>
+              <div class="text-[11px] text-white/60">Switch theme, GPT connection, 24h memory · India time aware</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Instagram Input Bar -->
+      <footer class="relative z-20 px-3 pb-3 pt-1 shrink-0">
+        <form id="chatForm" class="input-pill flex items-end gap-2 p-1.5">
+          <!-- Left Glowing Camera / Quick-Actions Button -->
+          <button type="button" id="leftActionBtn" class="accent-glow-btn w-9 h-9 rounded-full flex items-center justify-center shrink-0 hover:brightness-105 active:scale-95 transition mb-[1px]" title="Quick Actions & Reel Cadence">
+            <svg class="w-[19px] h-[19px]" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+          </button>
+
+          <!-- Message Textarea -->
+          <textarea
+            id="messageInput"
+            rows="1"
+            placeholder="Message..."
+            class="flex-1 bg-transparent text-white placeholder-white/55 text-[15px] focus:outline-none px-1 py-[7px] min-w-0 resize-none max-h-24 leading-snug"
+          ></textarea>
+
+          <!-- Empty-State Icons (Mic, Gallery, Sticker) -->
+          <div id="emptyInputIcons" class="flex items-center gap-0.5 pr-1 text-white/90 shrink-0 mb-[2px]">
+            <button type="button" onclick="showToast('Hold to record voice note 🎙️')" class="p-1.5 hover:bg-white/10 rounded-full transition active:scale-90" aria-label="Voice message">
+              <svg class="w-[21px] h-[21px]" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <rect x="9" y="2.5" width="6" height="11" rx="3" />
+                <path d="M5 10.5a7 7 0 0 0 14 0M12 17.5v4M8.5 21.5h7" />
+              </svg>
+            </button>
+            <button type="button" onclick="openChatPhotoPicker()" class="p-1.5 hover:bg-white/10 rounded-full transition active:scale-90" aria-label="Share photo">
+              <svg class="w-[21px] h-[21px]" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <rect x="3" y="3" width="18" height="18" rx="4" />
+                <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" stroke="none" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+            </button>
+            <button type="button" id="quickHeartStickerBtn" class="p-1.5 hover:bg-white/10 rounded-full transition active:scale-90" aria-label="Quick Sticker">
+              <svg class="w-[21px] h-[21px]" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9.5" />
+                <path d="M8.5 14.5c1 1.4 2.2 2 3.5 2s2.5-.6 3.5-2" />
+                <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none" />
+                <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Active-State Send Pill -->
+          <button type="submit" id="sendBtn" class="hidden accent-glow-btn h-9 px-4 rounded-full items-center justify-center shrink-0 active:scale-95 transition mb-[1px]" aria-label="Send message">
+            <svg class="w-[18px] h-[18px] -rotate-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 2L11 13" />
+              <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+            </svg>
+          </button>
+        </form>
+      </footer>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- FULL-SCREEN AUTHENTIC INSTAGRAM REELS PLAYER                        -->
+    <!-- =================================================================== -->
+    <div id="reelModal" class="hidden absolute inset-0 z-40 bg-black flex flex-col justify-between overflow-hidden">
+      <!-- 60fps High-DPI Full-Bleed Canvas -->
+      <canvas id="reelModalCanvas" class="absolute inset-0 w-full h-full block cursor-pointer"></canvas>
+
+      <!-- Double-tap Spring Heart Burst -->
+      <div id="reelBigHeart" class="hidden pointer-events-none absolute inset-0 flex items-center justify-center z-20">
+        <svg class="w-24 h-24 text-white drop-shadow-[0_6px_22px_rgba(0,0,0,0.55)] heart-burst-anim" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+        </svg>
+      </div>
+
+      <!-- Single-tap Center Speaker Flash Badge -->
+      <div id="reelSpeakerFlash" class="hidden pointer-events-none absolute inset-0 flex items-center justify-center z-20">
+        <div class="w-16 h-16 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white speaker-flash-anim">
+          <svg id="flashAudioOn" class="hidden w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" />
+          </svg>
+          <svg id="flashAudioOff" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Top Bar -->
+      <div class="relative z-10 flex items-center justify-between px-4 pt-4 pb-8 bg-gradient-to-b from-black/65 to-transparent pointer-events-none">
+        <div class="flex items-center gap-2 pointer-events-auto">
+          <button id="closeReelBtn" class="p-1.5 -ml-1.5 text-white hover:bg-white/15 rounded-full transition" aria-label="Back">
+            <svg class="w-6 h-6 drop-shadow" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 12H5m0 0l6.5-6.5M5 12l6.5 6.5" />
+            </svg>
+          </button>
+          <span class="text-white font-bold text-[19px] tracking-tight drop-shadow">Reels</span>
+        </div>
+        <button id="reelAudioBtn" class="pointer-events-auto w-9 h-9 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition" title="Toggle Lo-Fi Audio">
+          <svg id="reelAudioOnIcon" class="hidden w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07" />
+          </svg>
+          <svg id="reelAudioOffIcon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Bottom Overlay + Action Rail + Progress Bar + Quick Reply -->
+      <div class="relative z-10 bg-gradient-to-t from-black/90 via-black/45 to-transparent pt-16">
+        <div class="px-4 pb-3 flex items-end justify-between gap-3">
+          <!-- Bottom-Left Creator, Caption, Marquee Audio -->
+          <div class="flex-1 min-w-0 space-y-2 pb-1">
+            <div class="flex items-center gap-2.5">
+              <div id="reelModalAvatar" class="w-8 h-8 rounded-full overflow-hidden ring-2 ring-white/85 shrink-0"></div>
+              <span id="reelModalHandle" class="text-white font-semibold text-[14px] truncate drop-shadow">glidervibes1</span>
+              <button id="reelFollowBtn" class="px-2.5 py-0.5 text-[11.5px] font-semibold text-white border border-white/80 rounded-lg hover:bg-white/15 transition">Follow</button>
+            </div>
+            <p id="reelModalCaption" class="text-white/95 text-[13.5px] leading-snug line-clamp-2 drop-shadow"></p>
+            <!-- Scrolling Marquee Audio Track -->
+            <div class="flex items-center gap-1.5 max-w-[230px] overflow-hidden bg-black/35 backdrop-blur-sm rounded-full px-2.5 py-1 border border-white/10">
+              <span class="text-[11px] text-white shrink-0">♪</span>
+              <div class="overflow-hidden flex-1">
+                <div id="reelModalMarquee" class="marquee-track text-[11.5px] text-white/90 font-medium">
+                  <span class="pr-6">Original audio · glidervibes1</span>
+                  <span class="pr-6">Original audio · glidervibes1</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right-Side Vertical Action Rail -->
+          <div class="flex flex-col items-center gap-4 text-white shrink-0">
+            <button id="reelLikeBtn" class="flex flex-col items-center gap-1 group">
+              <svg id="reelLikeIcon" class="w-7 h-7 transition transform group-active:scale-125 drop-shadow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+              <span id="reelLikeCount" class="text-[11.5px] font-semibold drop-shadow">84.6K</span>
+            </button>
+            <button id="reelCommentBtn" class="flex flex-col items-center gap-1">
+              <svg class="w-7 h-7 drop-shadow" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+              </svg>
+              <span class="text-[11.5px] font-medium drop-shadow">1,248</span>
+            </button>
+            <button onclick="copyReelLink()" class="flex flex-col items-center gap-1">
+              <svg class="w-6 h-6 drop-shadow" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+              </svg>
+              <span class="text-[11.5px] font-medium drop-shadow">Share</span>
+            </button>
+            <button onclick="showToast('Reel saved to collection ✨')" class="p-0.5 text-white/90 hover:text-white">
+              <svg class="w-5 h-5 drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="5" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="12" cy="19" r="1.8" />
+              </svg>
+            </button>
+            <!-- Spinning Circular Audio Album Disc -->
+            <div id="reelAlbumDisc" class="w-8 h-8 rounded-full border-2 border-white/85 overflow-hidden shadow-lg album-disc-spin flex items-center justify-center bg-zinc-900">
+              <div id="reelDiscArt" class="w-full h-full flex items-center justify-center text-xs"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-Time Bottom White Progress Scrubber Bar -->
+        <div class="w-full h-[2.5px] bg-white/25 overflow-hidden">
+          <div id="reelProgressFill" class="h-full bg-white w-0 transition-none"></div>
+        </div>
+
+        <!-- Quick "Reply to Reel..." Bar directly into DM Chat -->
+        <form id="reelQuickReplyForm" class="px-3 py-2.5 bg-black/80 flex items-center gap-2">
+          <input
+            id="reelQuickReplyInput"
+            type="text"
+            placeholder="Reply to Reel..."
+            class="flex-1 bg-white/10 border border-white/15 rounded-full px-3.5 py-2 text-[13.5px] text-white placeholder-white/60 focus:outline-none focus:border-white/35"
+          />
+          <button type="submit" class="px-4 py-2 rounded-full bg-[#0095f6] hover:bg-[#1aa1f7] text-white text-xs font-semibold active:scale-95 transition shrink-0">
+            Send
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- CHAT SETTINGS / THEMES / AUTO-AI / DEPLOY API KEY SHEET             -->
+    <!-- =================================================================== -->
+    <div id="settingsSheetBackdrop" class="hidden absolute inset-0 z-50 bg-black/65 backdrop-blur-[2px] flex flex-col justify-end">
+      <div class="sheet-animate w-full max-h-[88%] overflow-y-auto no-scrollbar rounded-t-3xl bg-[#18181d]/98 border-t border-white/15 px-4 pt-2.5 pb-6 shadow-2xl space-y-4">
+        <div class="w-10 h-1 rounded-full bg-white/25 mx-auto"></div>
+
+        <!-- Contact Summary -->
+        <div class="flex items-center gap-3.5 px-1">
+          <div id="settingsAvatar" class="w-14 h-14 rounded-full overflow-hidden ring-2 ring-white/20 shrink-0 cursor-pointer"></div>
+          <div class="flex-1 min-w-0">
+            <h3 id="settingsName" class="text-base font-bold text-white truncate">My darlin...</h3>
+            <p id="settingsHandle" class="text-xs text-white/60 truncate">_sugar0chw...</p>
+            <div class="flex items-center gap-1.5 mt-1">
+              <span id="settingsPersonaTag" class="text-[10.5px] px-2 py-0.5 rounded-full bg-purple-500/25 text-purple-200 font-medium">Romantic Partner</span>
+              <span id="settingsMoodTag" class="text-[10.5px] px-2 py-0.5 rounded-full bg-white/10 text-white/85 font-medium">Mood: Romantic</span>
+            </div>
+          </div>
+          <button id="settingsChangePfpBtn" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition">Change PFP</button>
+        </div>
+
+        <!-- Live Instagram Theme Switcher -->
+        <div class="space-y-2">
+          <div class="text-xs font-semibold text-white/70 uppercase tracking-wider px-1">Chat Theme</div>
+          <div id="themePickerGrid" class="grid grid-cols-5 gap-2"></div>
+        </div>
+
+        <!-- Auto-Continue AI Toggle -->
+        <div class="rounded-2xl bg-white/[0.06] border border-white/10 p-3.5 flex items-center justify-between gap-3">
+          <div>
+            <div class="text-[14px] font-semibold text-white">Auto-Continue AI</div>
+            <div class="text-[11.5px] text-white/60 mt-0.5">Naturally replies if you go quiet (~28s) & sends background DMs</div>
+          </div>
+          <button id="autoContinueToggle" type="button" class="w-12 h-7 rounded-full transition-colors p-0.5 flex items-center bg-[#0095f6]">
+            <span id="autoContinueKnob" class="w-6 h-6 rounded-full bg-white shadow transform transition-transform translate-x-5"></span>
+          </button>
+        </div>
+
+        <!-- AI & Deploy Settings (Secure OpenAI backend) -->
+        <div class="rounded-2xl bg-white/[0.06] border border-white/10 p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[13.5px] font-semibold text-white">AI & Deploy Settings</span>
+            <span id="aiModeBadge" class="text-[10.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-medium">Zero-Failure Active</span>
+          </div>
+          <p class="text-[11.5px] text-white/60 leading-relaxed">
+            GPT is connected through the secure backend when this app is deployed. Your OpenAI secret key stays on the server and is never stored in this HTML file.
+          </p>
+          <div class="rounded-xl bg-black/30 border border-white/10 px-3 py-2.5 text-xs text-white/75">
+            <div class="font-semibold text-white">OpenAI GPT · Secure server connection</div>
+            <div class="mt-1">Set <code>OPENAI_API_KEY</code> in your hosting provider's Environment Variables, then redeploy.</div>
+          </div>
+          <div class="hidden"><input id="deployApiKeyInput" type="password"><button id="saveApiKeyBtn" type="button">Save</button></div>
+          <div class="flex items-center justify-between pt-0.5">
+            <label class="flex items-center gap-2 text-xs text-white/80 cursor-pointer">
+              <input id="offlineOnlyCheck" type="checkbox" class="accent-[#0095f6] rounded" />
+              <span>Use Built-In Offline Engine Only</span>
+            </label>
+            <button id="clearApiKeyBtn" type="button" class="hidden">Clear Key</button>
+          </div>
+        </div>
+
+        <!-- 24-Hour Chat Memory Status -->
+        <div class="rounded-2xl bg-white/[0.06] border border-white/10 p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span class="text-[13.5px] font-semibold text-white">24h Chat Memory</span>
+            </div>
+            <span id="savedCountLabel" class="text-[11.5px] text-white/70 font-medium">0 saved</span>
+          </div>
+          <div class="flex items-center gap-2 pt-0.5">
+            <button id="editContactInfoBtn" class="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition">Edit Name / Handle</button>
+            <button id="resetChatHistoryBtn" class="flex-1 py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 text-xs font-semibold text-pink-200 transition">Reset 24h History</button>
+          </div>
+        </div>
+
+        <button id="closeSettingsBtn" class="w-full py-3 rounded-2xl bg-white/10 text-sm font-semibold text-white hover:bg-white/15 transition">Done</button>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- CHANGEABLE INSTAGRAM PFP BOTTOM SHEET                               -->
+    <!-- =================================================================== -->
+    <div id="pfpSheetBackdrop" class="hidden absolute inset-0 z-50 bg-black/65 backdrop-blur-[2px] flex flex-col justify-end">
+      <div class="sheet-animate w-full rounded-t-3xl bg-[#1c1824]/98 backdrop-blur-2xl border-t border-white/15 px-4 pt-2.5 pb-5 shadow-2xl">
+        <div class="w-10 h-1 rounded-full bg-white/25 mx-auto mb-3.5"></div>
+
+        <div class="flex flex-col items-center mb-4">
+          <div id="pfpSheetPreview" class="w-16 h-16 rounded-full overflow-hidden ring-2 ring-white/40 shadow-lg mb-2.5"></div>
+          <h3 class="text-[15.5px] font-bold text-white">Change Profile Photo</h3>
+          <span id="pfpTargetLabel" class="text-xs text-white/60 mt-0.5">for My darlin...</span>
+        </div>
+
+        <div class="divide-y divide-white/10 rounded-2xl bg-white/[0.05] overflow-hidden">
+          <button id="pfpGalleryBtn" type="button" class="w-full py-3.5 px-4 text-center text-[14.5px] font-semibold text-[#5ab4ff] hover:bg-white/10 active:bg-white/15 transition">
+            Choose from Gallery / Device
+          </button>
+
+          <button id="pfpToggleUrlBtn" type="button" class="w-full py-3.5 px-4 text-center text-[14.5px] font-semibold text-white hover:bg-white/10 active:bg-white/15 transition">
+            Paste Image URL
+          </button>
+
+          <div id="pfpUrlBox" class="hidden px-3.5 py-3 bg-black/30 space-y-2.5">
+            <input
+              id="pfpUrlInput"
+              type="url"
+              placeholder="https://example.com/photo.jpg"
+              class="w-full px-3.5 py-2.5 rounded-xl bg-white/10 text-white placeholder-white/45 text-sm border border-white/15 focus:outline-none focus:border-blue-400"
+            />
+            <div class="flex items-center justify-between gap-2">
+              <span id="pfpUrlStatus" class="text-[11.5px] text-white/65 truncate">Paste a direct image link for live preview</span>
+              <button id="pfpApplyUrlBtn" type="button" class="px-4 py-1.5 rounded-xl text-xs font-semibold bg-white text-black hover:brightness-95 active:scale-95 transition shrink-0">
+                Apply
+              </button>
+            </div>
+          </div>
+
+          <button id="pfpResetBtn" type="button" class="w-full py-3.5 px-4 text-center text-[14.5px] font-semibold text-pink-300 hover:bg-white/10 active:bg-white/15 transition">
+            Reset to Default Photo
+          </button>
+        </div>
+
+        <button id="pfpCancelBtn" type="button" class="mt-2.5 w-full py-3.5 rounded-2xl bg-white/[0.08] text-center text-[14.5px] font-semibold text-white hover:bg-white/15 active:scale-[0.99] transition">
+          Cancel
+        </button>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- CREATE CUSTOM DM MODAL                                              -->
+    <!-- =================================================================== -->
+    <div id="newDmModal" class="hidden absolute inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="w-full max-w-[356px] rounded-3xl bg-[#18181d] border border-white/15 p-5 shadow-2xl space-y-3.5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-white">New AI Direct Message</h3>
+          <button id="closeNewDmBtn" class="text-white/60 hover:text-white text-lg px-1">✕</button>
+        </div>
+
+        <div class="space-y-2.5">
+          <div>
+            <label class="block text-[11.5px] text-white/70 mb-1">Display Name</label>
+            <input id="newDmName" type="text" placeholder="e.g. Riya 💕 or Kabir" class="w-full px-3.5 py-2.5 rounded-xl bg-white/10 text-white text-sm border border-white/10 focus:outline-none focus:border-blue-400" />
+          </div>
+          <div>
+            <label class="block text-[11.5px] text-white/70 mb-1">Instagram Handle</label>
+            <input id="newDmHandle" type="text" placeholder="e.g. riya.xo_" class="w-full px-3.5 py-2.5 rounded-xl bg-white/10 text-white text-sm border border-white/10 focus:outline-none focus:border-blue-400" />
+          </div>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11.5px] text-white/70 mb-1">Persona Type</label>
+              <select id="newDmPersona" class="w-full px-3 py-2.5 rounded-xl bg-[#26262e] text-white text-xs border border-white/10 focus:outline-none">
+                <option value="romantic">Romantic Partner</option>
+                <option value="bestie">Sarcastic Bro</option>
+                <option value="flirty">Aesthetic Bestie</option>
+                <option value="listener">2 AM Philosophical</option>
+                <option value="study">Tech & Hackathon</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11.5px] text-white/70 mb-1">Chat Theme</label>
+              <select id="newDmTheme" class="w-full px-3 py-2.5 rounded-xl bg-[#26262e] text-white text-xs border border-white/10 focus:outline-none">
+                <option value="love">Love Hearts</option>
+                <option value="classic">Classic Dark</option>
+                <option value="sunset">Berry Sunset</option>
+                <option value="midnight">Midnight Galaxy</option>
+                <option value="minimal">Minimal Emerald</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11.5px] text-white/70 mb-1">Optional Profile Photo URL</label>
+            <input id="newDmPfpUrl" type="url" placeholder="Leave blank for custom portrait" class="w-full px-3.5 py-2 rounded-xl bg-white/10 text-white text-xs border border-white/10 focus:outline-none focus:border-blue-400" />
+          </div>
+        </div>
+
+        <button id="createNewDmConfirm" class="w-full py-2.5 rounded-xl bg-[#0095f6] hover:bg-[#1aa1f7] text-white text-sm font-semibold active:scale-[0.98] transition">
+          Start Chat
+        </button>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- GENERIC EDIT MODAL (NICKNAME / CONTACT NAME / YOUR 24H NOTE)        -->
+    <!-- =================================================================== -->
+    <div id="editModal" class="hidden absolute inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-5">
+      <div class="w-full max-w-[330px] rounded-3xl bg-[#1e1a29] border border-white/15 p-5 shadow-2xl space-y-4">
+        <h3 id="editModalTitle" class="text-base font-bold text-white">Edit</h3>
+        <div id="editModalFields" class="space-y-3"></div>
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button id="editModalCancel" class="px-4 py-2 rounded-xl text-sm text-white/70 hover:bg-white/10 transition">Cancel</button>
+          <button id="editModalSave" class="px-4 py-2 rounded-xl text-sm font-semibold bg-white text-black hover:brightness-95 transition">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Toast Notification -->
+    <div id="toast" class="pointer-events-none opacity-0 transition-opacity duration-200 absolute top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full bg-black/85 backdrop-blur-md text-white text-xs font-medium whitespace-nowrap shadow-xl border border-white/15">
+      Toast
+    </div>
+
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. CONSTANTS, STORAGE KEYS, AND DEPLOYMENT AI CONFIG
+    // =========================================================================
+    const STORAGE_KEY = 'ig_dm_deploy_v4';
+    const TTL_24H_MS = 24 * 60 * 60 * 1000;
+
+    // Pattern-based adaptive Reel cadence
+    const CADENCE_PATTERN = [
+      { chats: 10, reels: 2 },
+      { chats: 5,  reels: 1 },
+      { chats: 8,  reels: 1 },
+      { chats: 6,  reels: 2 },
+      { chats: 9,  reels: 1 }
+    ];
+
+    const THEME_META = {
+      love:     { label: 'Love',     swatch: 'linear-gradient(135deg, #4b0f5b, #ff006e)' },
+      classic:  { label: 'Classic',  swatch: 'linear-gradient(135deg, #121212, #3797F0)' },
+      sunset:   { label: 'Sunset',   swatch: 'linear-gradient(135deg, #4b1236, #ff5e7e)' },
+      midnight: { label: 'Midnight', swatch: 'linear-gradient(135deg, #0d1330, #4f46e5)' },
+      minimal:  { label: 'Minimal',  swatch: 'linear-gradient(135deg, #0E1114, #0D9488)' }
+    };
+
+    const PERSONA_META = {
+      romantic: {
+        label: 'Male Best Friend',
+        preferredReels: ['sugar_glider', 'sleepy_paws', 'rainy_lofts', 'bunny_cloud', 'sunset_vibes'],
+        systemPrompt: `You are roleplaying as the user's close male best friend: warm, funny, loyal, relaxed and emotionally supportive. You are NOT a boyfriend or girlfriend and must never use romantic, possessive or relationship-style language.
+- Speak in natural Kolkata Banglish using Romanized Bengali: "Ki korchis", "Kothay achis", "Kheyechis?", "Dhur pagol", "Bhai bol", "Ki scene", "Accha bujhlam", "Tension nis na" mixed naturally with English. Use tui/tor/toke/achis/korchis, never formal apni/korcho.
+- Tease and roast lightly like close friends, but be sincere when the user needs support. Do not force bro/bhai into every message.
+- Keep each DM natural and concise, usually 1 to 2 messages. Never mention being AI.`
+      },
+      bestie: {
+        label: 'Sarcastic College Bro',
+        preferredReels: ['relatable_bangla', 'midnight_drives', 'sunset_vibes'],
+        systemPrompt: `You are roleplaying as "Rohan (Bro)" (@rohan.x_), the user's sarcastic, funny, loyal college bro on Instagram DM.
+- Speak in energetic Banglish/Hinglish/English banter ("bhai", "bro", "kothay tui", "ki scene", "chai or ride?", "attendance cooked", "no cap", "pagol naki", "dekh eta").
+- Tease lightly, hype them up, talk about bikes, college chaos, late-night chai.
+- Keep bubbles ultra-short (1 to 7 words), 1 to 3 bubbles max. Never mention being AI.`
+      },
+      flirty: {
+        label: 'Aesthetic Bestie',
+        preferredReels: ['bunny_cloud', 'sleepy_paws', 'sunset_vibes', 'sugar_glider', 'rainy_lofts'],
+        systemPrompt: `You are roleplaying as "Aanya ✨" (@aanya.vibes), an aesthetic, reel-obsessed, playful bestie on Instagram DM.
+- Speak in natural modern Gen-Z English with cute touches ("stoppp", "omg", "lowkey", "need this vibe", "literally us", "wait actually?", "obsessed").
+- Keep bubbles short and snappy (1 to 7 words), 1 to 3 bubbles max. Never mention being AI.`
+      },
+      listener: {
+        label: '2 AM Philosophical',
+        preferredReels: ['rainy_lofts', 'midnight_drives', 'sunset_vibes'],
+        systemPrompt: `You are roleplaying as "Midnight Talks" (@void.thoughts), a calm, warm, 2 AM philosophical late-night confidant on Instagram DM.
+- Speak gently and thoughtfully in natural English (and soft Banglish if the user uses it). Explore deep thoughts, quiet feelings, and late-night reflections without sounding robotic.
+- Keep bubbles natural and concise (2 to 10 words each), 1 to 3 bubbles max. Never mention being AI.`
+      },
+      study: {
+        label: 'Tech & Hackathon Partner',
+        preferredReels: ['relatable_bangla', 'rainy_lofts', 'midnight_drives'],
+        systemPrompt: `You are roleplaying as "Dev Grind" (@code.ship.repeat), a sharp, motivating tech & hackathon accountability partner on Instagram DM.
+- Talk about locking in, shipping MVPs, debugging, hackathons, coffee, and celebrating deploys.
+- Keep bubbles punchy and practical (2 to 8 words each), 1 to 3 bubbles max. Never mention being AI.`
+      }
+    };
+
+    // =========================================================================
+    // 2. HIGH-DPI SVG PORTRAIT AVATARS FOR EACH PERSONA
+    // =========================================================================
+    function getDefaultAvatarSvg(styleKey) {
+      if (styleKey === 'bestie') {
+        return `<svg viewBox="0 0 100 100" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs><linearGradient id="avB" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e293b"/><stop offset="100%" stop-color="#0ea5e9"/></linearGradient></defs>
+          <rect width="100" height="100" fill="url(#avB)"/>
+          <path d="M22 100 Q50 76 78 100 Z" fill="#0f172a"/>
+          <ellipse cx="50" cy="48" rx="19" ry="22" fill="#d99e73"/>
+          <path d="M30 42 Q32 20 52 20 Q72 20 70 42 Q60 31 50 32 Q38 31 30 42 Z" fill="#111827"/>
+          <rect x="35" y="43" width="12" height="7" rx="2.5" fill="#09090b"/>
+          <rect x="53" y="43" width="12" height="7" rx="2.5" fill="#09090b"/>
+          <line x1="47" y1="46" x2="53" y2="46" stroke="#09090b" stroke-width="2"/>
+          <path d="M44 59 Q50 64 57 59" fill="none" stroke="#5c2d1e" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>`;
+      }
+      if (styleKey === 'flirty') {
+        return `<svg viewBox="0 0 100 100" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs><linearGradient id="avF" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff6b9d"/><stop offset="100%" stop-color="#6b1d5c"/></linearGradient></defs>
+          <rect width="100" height="100" fill="url(#avF)"/>
+          <path d="M18 100 C18 52 26 20 50 18 C74 20 82 52 82 100 Z" fill="#23101d"/>
+          <path d="M25 100 Q50 80 75 100 Z" fill="#fce7f3"/>
+          <ellipse cx="50" cy="49" rx="18" ry="21" fill="#f3bfa0"/>
+          <circle cx="43" cy="48" r="2.3" fill="#1e0c14"/>
+          <circle cx="57" cy="48" r="2.3" fill="#1e0c14"/>
+          <ellipse cx="38" cy="54" rx="4" ry="2" fill="#ff7aa8" opacity="0.5"/>
+          <ellipse cx="62" cy="54" rx="4" ry="2" fill="#ff7aa8" opacity="0.5"/>
+          <path d="M45 60 Q50 64.5 55 60" fill="none" stroke="#b93e68" stroke-width="2.1" stroke-linecap="round"/>
+          <path d="M31 42 Q40 24 62 28 Q70 36 69 48 Q62 34 50 32 Q37 33 31 42 Z" fill="#23101d"/>
+        </svg>`;
+      }
+      if (styleKey === 'listener') {
+        return `<svg viewBox="0 0 100 100" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs><radialGradient id="avL" cx="35%" cy="30%" r="75%"><stop offset="0%" stop-color="#312e81"/><stop offset="100%" stop-color="#050714"/></radialGradient></defs>
+          <rect width="100" height="100" fill="url(#avL)"/>
+          <circle cx="25" cy="24" r="1.4" fill="#fff"/>
+          <circle cx="78" cy="30" r="1.2" fill="#e0e7ff"/>
+          <circle cx="68" cy="76" r="1.5" fill="#fff"/>
+          <path d="M62 30 A20 20 0 1 0 62 70 A15 15 0 1 1 62 30 Z" fill="#fef08a"/>
+        </svg>`;
+      }
+      if (styleKey === 'study') {
+        return `<svg viewBox="0 0 100 100" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs><linearGradient id="avS" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#0f172a"/><stop offset="100%" stop-color="#0d9488"/></linearGradient></defs>
+          <rect width="100" height="100" fill="url(#avS)"/>
+          <rect x="20" y="28" width="60" height="44" rx="8" fill="#090d12" stroke="#2dd4bf" stroke-width="2.5"/>
+          <path d="M34 45 L42 50 L34 55" fill="none" stroke="#2dd4bf" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="48" y1="56" x2="64" y2="56" stroke="#f8fafc" stroke-width="3" stroke-linecap="round"/>
+        </svg>`;
+      }
+      return `<svg viewBox="0 0 100 100" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+        <defs><radialGradient id="warmBg" cx="65%" cy="35%" r="75%"><stop offset="0%" stop-color="#f7b977"/><stop offset="55%" stop-color="#8b4528"/><stop offset="100%" stop-color="#291218"/></radialGradient></defs>
+        <rect width="100" height="100" fill="url(#warmBg)"/>
+        <path d="M18 98 C16 62, 22 22, 52 18 C82 14, 88 55, 84 98 Z" fill="#1c0d10"/>
+        <path d="M38 72 L62 72 L74 100 L26 100 Z" fill="#d99a6c"/>
+        <path d="M24 90 Q50 82 76 90 L82 100 L18 100 Z" fill="#2c1726"/>
+        <ellipse cx="52" cy="50" rx="20" ry="24" fill="#e6ab7c"/>
+        <ellipse cx="59" cy="48" rx="11" ry="17" fill="#f7c89c" opacity="0.45"/>
+        <circle cx="44" cy="49" r="7.5" fill="rgba(255,255,255,0.12)" stroke="#3d2219" stroke-width="1.6"/>
+        <circle cx="61" cy="49" r="7.5" fill="rgba(255,255,255,0.12)" stroke="#3d2219" stroke-width="1.6"/>
+        <line x1="51.5" y1="49" x2="53.5" y2="49" stroke="#3d2219" stroke-width="1.6"/>
+        <circle cx="44" cy="49" r="2.1" fill="#21100c"/>
+        <circle cx="61" cy="49" r="2.1" fill="#21100c"/>
+        <circle cx="44.8" cy="48.2" r="0.7" fill="#ffffff"/>
+        <circle cx="61.8" cy="48.2" r="0.7" fill="#ffffff"/>
+        <path d="M46 61 Q52 65.5 58 61" fill="none" stroke="#9e4d46" stroke-width="2" stroke-linecap="round"/>
+        <path d="M32 36 Q42 22 64 26 Q73 34 72 52 Q69 36 58 32 Q42 30 33 44 Z" fill="#1c0d10"/>
+      </svg>`;
+    }
+
+    // =========================================================================
+    // 3. 7 ULTRA-REFINED CINEMATIC REELS + FILM GRAIN + KEN BURNS + CAPTIONS
+    // =========================================================================
+    const REEL_CATALOG = {
+      sugar_glider: {
+        handle: 'glidervibes1',
+        audio: 'Original audio · glidervibes1',
+        defaultCaption: 'tiny sunlit cloud holding onto my hand 🥹💛 #sugarglider #cute #fluffy',
+        emoji: '🐹',
+        grad: ['#ffe680', '#ff9ec2'],
+        beats: ['pov: holding a tiny cloud', 'he literally refuses to let go 🥹', 'sleepy little paws 💛']
+      },
+      sleepy_paws: {
+        handle: 'sleepy.paws',
+        audio: 'golden hour lofi · sleepy.paws',
+        defaultCaption: 'golden hour naps hit different when you’re tiny 🐱✨ #kitten #cozy',
+        emoji: '🐱',
+        grad: ['#ffb86c', '#9b59d6'],
+        beats: ['golden hour kitten check ✨', 'slow blinks = i love you', 'go to sleep already 😴']
+      },
+      midnight_drives: {
+        handle: 'midnight.drives',
+        audio: 'slowed + reverb · midnight.drives',
+        defaultCaption: 'wet asphalt, neon reflections & 2 AM playlists 🌧️🚗 #nightdrive #aesthetic',
+        emoji: '🚗',
+        grad: ['#312e81', '#f43f5e'],
+        beats: ['2:00 AM wet asphalt', 'neon reflections on the glass', 'nowhere to be tonight 🌙']
+      },
+      rainy_lofts: {
+        handle: 'rainy.lofts',
+        audio: 'soft rain & piano · rainy.lofts',
+        defaultCaption: 'window raindrops + warm fairy lights + talking to you 🌧️💜 #lofi #rain',
+        emoji: '🌧️',
+        grad: ['#4c1d95', '#ec4899'],
+        beats: ['rain on the bedroom glass', 'fairy lights & quiet talks', 'wish tonight never ends 💜']
+      },
+      bunny_cloud: {
+        handle: 'bunny.cloud',
+        audio: 'pastel studio chime · bunny.cloud',
+        defaultCaption: 'roundest little marshmallow twitching his nose 🐰🍓 #bunny #soft',
+        emoji: '🐰',
+        grad: ['#ffd6ec', '#a855f7'],
+        beats: ['nose twitching at 100mph', 'certified marshmallow loaf 🐰', 'send this to your fav person']
+      },
+      relatable_bangla: {
+        handle: 'relatable.bangla',
+        audio: 'trending audio · relatable.bangla',
+        defaultCaption: 'every single night at 12:00 AM be like 💀💜 #banglamemes #relatable',
+        emoji: '💀',
+        grad: ['#7c3aed', '#db2777'],
+        beats: ['"ekhon ghumabo" at 11:55 PM', 'still texting at 2:30 AM 💀', 'tag your sleep-deprived partner']
+      },
+      sunset_vibes: {
+        handle: 'sunset.vibes',
+        audio: 'ocean waves & guitar · sunset.vibes',
+        defaultCaption: 'golden horizon melting into the ocean 🌅✨ #sunset #peace #vibes',
+        emoji: '🌅',
+        grad: ['#fb923c', '#db2777'],
+        beats: ['watch the horizon melt', 'breathe out everything heavy', 'golden hour peace 🌅']
+      }
+    };
+    const VALID_REEL_TYPES = Object.keys(REEL_CATALOG);
+
+    function getCreatorAvatarHTML(type) {
+      const meta = REEL_CATALOG[type] || REEL_CATALOG.sugar_glider;
+      return `<div class="w-full h-full flex items-center justify-center text-[13px]" style="background: linear-gradient(135deg, ${meta.grad[0]}, ${meta.grad[1]});">${meta.emoji}</div>`;
+    }
+
+    // Pre-computed deterministic particles for 60fps bokeh, rain, and dust motes
+    const PARTICLES = Array.from({ length: 44 }, (_, i) => ({
+      x: ((i * 73.13) % 100) / 100,
+      y: ((i * 39.77) % 100) / 100,
+      r: 0.011 + ((i * 17) % 10) * 0.0042,
+      speed: 0.12 + ((i * 29) % 10) * 0.038,
+      phase: (i * 1.37) % (Math.PI * 2),
+      hue: i % 3
+    }));
+
+    // Lightweight offscreen film grain tile for realistic Reels texture
+    const grainCanvas = document.createElement('canvas');
+    grainCanvas.width = 96;
+    grainCanvas.height = 96;
+    const gCtx = grainCanvas.getContext('2d');
+    const gImg = gCtx.createImageData(96, 96);
+    for (let i = 0; i < gImg.data.length; i += 4) {
+      const v = Math.random() > 0.5 ? 255 : 0;
+      gImg.data[i] = v;
+      gImg.data[i + 1] = v;
+      gImg.data[i + 2] = v;
+      gImg.data[i + 3] = 11; // Subtle cinematic grain
+    }
+    gCtx.putImageData(gImg, 0, 0);
+
+    function drawReelFrame(ctx, w, h, type, t, isFullscreen = false) {
+      ctx.save();
+      ctx.clearRect(0, 0, w, h);
+
+      // Smooth Ken Burns Camera Drift & Gentle Zoom
+      const zoom = 1.035 + Math.sin(t * 0.42) * 0.03;
+      const panX = Math.sin(t * 0.31) * w * 0.014;
+      const panY = Math.cos(t * 0.27) * h * 0.012;
+      ctx.translate(w * 0.5 + panX, h * 0.5 + panY);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-w * 0.5, -h * 0.5);
+
+      if (type === 'sugar_glider') drawSugarGlider(ctx, w, h, t);
+      else if (type === 'sleepy_paws') drawSleepyPaws(ctx, w, h, t);
+      else if (type === 'midnight_drives') drawMidnightDrives(ctx, w, h, t);
+      else if (type === 'rainy_lofts') drawRainyLofts(ctx, w, h, t);
+      else if (type === 'bunny_cloud') drawBunnyCloud(ctx, w, h, t);
+      else if (type === 'relatable_bangla') drawRelatableBangla(ctx, w, h, t);
+      else drawSunsetVibes(ctx, w, h, t);
+
+      ctx.restore();
+
+      // Authentic Instagram Reels Auto-Captions / Kinetic White Outlined Text
+      const meta = REEL_CATALOG[type] || REEL_CATALOG.sugar_glider;
+      if (meta.beats && meta.beats.length > 0 && type !== 'relatable_bangla') {
+        const beatIndex = Math.floor(t / 3.2) % meta.beats.length;
+        const beatProgress = (t % 3.2) / 3.2;
+        const alpha = beatProgress < 0.12 ? beatProgress / 0.12 : (beatProgress > 0.88 ? (1 - beatProgress) / 0.12 : 1);
+        const popScale = beatProgress < 0.1 ? 0.92 + beatProgress * 0.8 : 1;
+        const captionText = meta.beats[beatIndex];
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+        const yPos = isFullscreen ? h * 0.72 : h * 0.79;
+        ctx.translate(w * 0.5, yPos);
+        ctx.scale(popScale, popScale);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const fontSize = Math.round(w * (isFullscreen ? 0.052 : 0.058));
+        ctx.font = `700 ${fontSize}px Roboto, Inter, sans-serif`;
+        ctx.lineWidth = Math.max(3, fontSize * 0.18);
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.72)';
+        ctx.lineJoin = 'round';
+        ctx.strokeText(captionText, 0, 0);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(captionText, 0, 0);
+        ctx.restore();
+      }
+
+      // Subtle Animated Film Grain Overlay
+      ctx.save();
+      const pattern = ctx.createPattern(grainCanvas, 'repeat');
+      if (pattern) {
+        ctx.translate(Math.floor((t * 37) % 96), Math.floor((t * 53) % 96));
+        ctx.fillStyle = pattern;
+        ctx.fillRect(-96, -96, w + 192, h + 192);
+      }
+      ctx.restore();
+
+      // Subtle Cinematic Vignette
+      const vig = ctx.createRadialGradient(w * 0.5, h * 0.5, w * 0.35, w * 0.5, h * 0.5, h * 0.72);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, 'rgba(0,0,0,0.34)');
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, w, h);
+    }
+
+    function drawSugarGlider(ctx, w, h, t) {
+      // Warm sunlit indoor yellow-green bokeh backdrop matching the screenshot
+      const bg = ctx.createLinearGradient(0, 0, w, h);
+      bg.addColorStop(0, '#c8cbc2');
+      bg.addColorStop(0.42, '#d9de65');
+      bg.addColorStop(1, '#a9b01c');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      for (let i = 0; i < 16; i++) {
+        const p = PARTICLES[i];
+        const bx = (p.x + Math.sin(t * 0.45 + p.phase) * 0.04) * w;
+        const by = (p.y + Math.cos(t * 0.35 + p.phase) * 0.03) * h;
+        const br = p.r * w * 2.4;
+        const g = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+        g.addColorStop(0, p.hue === 0 ? 'rgba(255,253,215,0.55)' : 'rgba(230,242,80,0.34)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Warm realistic hand cradling the glider
+      const handGrad = ctx.createLinearGradient(0, h * 0.6, w * 0.72, h);
+      handGrad.addColorStop(0, '#fad1b8');
+      handGrad.addColorStop(1, '#d18264');
+      ctx.fillStyle = handGrad;
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      ctx.quadraticCurveTo(w * 0.08, h * 0.67, w * 0.28, h * 0.6);
+      ctx.quadraticCurveTo(w * 0.54, h * 0.55, w * 0.66, h * 0.78);
+      ctx.quadraticCurveTo(w * 0.7, h * 0.9, w * 0.62, h);
+      ctx.closePath();
+      ctx.fill();
+
+      const bobY = Math.sin(t * 2.1) * (h * 0.011);
+      const earTwitch = Math.sin(t * 4.8) > 0.86 ? Math.sin(t * 20) * 0.08 : 0;
+      const blink = (t % 4.1) > 3.94 ? 0.14 : 1;
+
+      ctx.save();
+      ctx.translate(w * 0.5, h * 0.46 + bobY);
+
+      // Fluffy cream-yellow fur body
+      const furGrad = ctx.createRadialGradient(-w * 0.06, -h * 0.08, w * 0.02, 0, 0, w * 0.45);
+      furGrad.addColorStop(0, '#ffffff');
+      furGrad.addColorStop(0.56, '#fffbe3');
+      furGrad.addColorStop(1, '#f7dd6e');
+      ctx.fillStyle = furGrad;
+      ctx.beginPath(); ctx.ellipse(0, h * 0.08, w * 0.39, h * 0.21, 0, 0, Math.PI * 2); ctx.fill();
+
+      // Ears
+      ctx.save();
+      ctx.translate(-w * 0.17, -h * 0.17);
+      ctx.rotate(-0.35 + earTwitch);
+      ctx.fillStyle = '#d99f7a';
+      ctx.beginPath(); ctx.ellipse(0, 0, w * 0.056, h * 0.045, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f8baa8';
+      ctx.beginPath(); ctx.ellipse(0, 0, w * 0.032, h * 0.028, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(w * 0.17, -h * 0.18);
+      ctx.rotate(0.45 - earTwitch);
+      ctx.fillStyle = '#c48358';
+      ctx.beginPath(); ctx.ellipse(0, 0, w * 0.066, h * 0.045, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#f7b5a3';
+      ctx.beginPath(); ctx.ellipse(0, 0, w * 0.038, h * 0.026, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // Head
+      ctx.fillStyle = '#fffef8';
+      ctx.beginPath(); ctx.ellipse(-w * 0.02, -h * 0.11, w * 0.22, h * 0.125, 0, 0, Math.PI * 2); ctx.fill();
+
+      // Glossy dark eyes
+      [[-w * 0.12, -h * 0.12, w * 0.052], [w * 0.065, -h * 0.125, w * 0.054]].forEach(([ex, ey, er]) => {
+        ctx.save(); ctx.translate(ex, ey); ctx.scale(1, blink);
+        ctx.fillStyle = '#171014'; ctx.beginPath(); ctx.arc(0, 0, er, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(-er * 0.32, -er * 0.34, er * 0.33, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      });
+
+      // Pink nose & tiny paws
+      ctx.fillStyle = '#f58ca8';
+      ctx.beginPath(); ctx.ellipse(-w * 0.12, -h * 0.05, w * 0.038, h * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#f9b3c2';
+      [[-w * 0.22, h * 0.08, -0.35], [w * 0.23, h * 0.08, 0.35], [-w * 0.03, h * 0.22, -0.15], [w * 0.07, h * 0.25, 0.22]].forEach(([px, py, rot]) => {
+        ctx.save(); ctx.translate(px, py); ctx.rotate(rot);
+        ctx.beginPath(); ctx.ellipse(0, 0, w * 0.065, h * 0.033, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      });
+      ctx.restore();
+    }
+
+    function drawSleepyPaws(ctx, w, h, t) {
+      const bg = ctx.createLinearGradient(0, 0, w, h);
+      bg.addColorStop(0, '#3a1a36');
+      bg.addColorStop(0.5, '#8a4844');
+      bg.addColorStop(1, '#df9e5c');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      // Sunbeam & floating golden dust motes
+      const ray = ctx.createLinearGradient(0, 0, w * 0.8, h * 0.85);
+      ray.addColorStop(0, 'rgba(255, 232, 175, 0.36)');
+      ray.addColorStop(1, 'rgba(255, 220, 150, 0)');
+      ctx.fillStyle = ray;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(w * 0.65, 0); ctx.lineTo(w, h * 0.8); ctx.lineTo(w * 0.2, h); ctx.closePath(); ctx.fill();
+
+      for (let i = 0; i < 20; i++) {
+        const p = PARTICLES[i];
+        const mx = (p.x + Math.sin(t * 0.4 + p.phase) * 0.04) * w;
+        const my = ((p.y - t * 0.03 * p.speed + 1) % 1) * h;
+        ctx.fillStyle = `rgba(255, 244, 210, ${0.35 + 0.4 * Math.sin(t * 2 + p.phase)})`;
+        ctx.beginPath(); ctx.arc(mx, my, Math.max(1.2, p.r * w * 0.45), 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Cozy blanket
+      ctx.fillStyle = '#f8e6dc';
+      ctx.beginPath(); ctx.moveTo(0, h * 0.64); ctx.quadraticCurveTo(w * 0.5, h * 0.54, w, h * 0.66); ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath(); ctx.fill();
+
+      const breath = 1 + Math.sin(t * 1.7) * 0.025;
+      const slowBlink = Math.sin(t * 1.2) > 0.65 ? 0.15 : 1;
+      ctx.save();
+      ctx.translate(w * 0.5, h * 0.56);
+      ctx.scale(breath, 2 - breath);
+
+      ctx.fillStyle = '#f3a45b';
+      ctx.beginPath(); ctx.ellipse(0, h * 0.04, w * 0.32, h * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-w * 0.21, -h * 0.06); ctx.lineTo(-w * 0.14, -h * 0.18); ctx.lineTo(-w * 0.05, -h * 0.09); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(w * 0.21, -h * 0.06); ctx.lineTo(w * 0.14, -h * 0.18); ctx.lineTo(w * 0.05, -h * 0.09); ctx.closePath(); ctx.fill();
+
+      ctx.fillStyle = '#ffbf7d';
+      ctx.beginPath(); ctx.ellipse(0, -h * 0.02, w * 0.23, h * 0.115, 0, 0, Math.PI * 2); ctx.fill();
+
+      [-w * 0.085, w * 0.085].forEach(ex => {
+        ctx.save(); ctx.translate(ex, -h * 0.02); ctx.scale(1, slowBlink);
+        ctx.fillStyle = '#331c0d'; ctx.beginPath(); ctx.arc(0, 0, w * 0.036, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-w * 0.011, -w * 0.012, w * 0.012, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      });
+
+      ctx.fillStyle = '#ff7b9b';
+      ctx.beginPath(); ctx.moveTo(-w * 0.022, h * 0.008); ctx.lineTo(w * 0.022, h * 0.008); ctx.lineTo(0, h * 0.026); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    function drawMidnightDrives(ctx, w, h, t) {
+      const sky = ctx.createLinearGradient(0, 0, 0, h * 0.56);
+      sky.addColorStop(0, '#050616');
+      sky.addColorStop(1, '#220c42');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, w, h * 0.56);
+
+      // Wet asphalt with neon reflections
+      const road = ctx.createLinearGradient(0, h * 0.54, 0, h);
+      road.addColorStop(0, '#130724');
+      road.addColorStop(1, '#07040e');
+      ctx.fillStyle = road;
+      ctx.fillRect(0, h * 0.54, w, h * 0.46);
+
+      // Bokeh city headlights & taillights
+      const lights = ['rgba(255,48,110,0.6)', 'rgba(56,189,248,0.55)', 'rgba(251,191,36,0.55)'];
+      for (let i = 0; i < 20; i++) {
+        const p = PARTICLES[i];
+        const lx = p.x * w;
+        const ly = h * 0.42 + p.y * h * 0.24;
+        const lr = p.r * w * 2.1;
+        const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr);
+        g.addColorStop(0, lights[p.hue]);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(lx, ly, lr, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Moving highway lane dashes
+      ctx.strokeStyle = 'rgba(255, 224, 150, 0.78)';
+      ctx.lineWidth = w * 0.014;
+      for (let i = 0; i < 6; i++) {
+        const prog = ((t * 0.95 + i / 6) % 1);
+        const y1 = h * 0.56 + Math.pow(prog, 2.2) * h * 0.44;
+        ctx.beginPath(); ctx.moveTo(w * 0.5, y1); ctx.lineTo(w * 0.5, y1 + h * 0.045 * (0.3 + prog)); ctx.stroke();
+      }
+
+      // Windshield rain streaks
+      ctx.strokeStyle = 'rgba(220, 235, 255, 0.48)';
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 26; i++) {
+        const p = PARTICLES[i];
+        const rx = p.x * w;
+        const ry = ((p.y + t * p.speed * 1.8) % 1.15 - 0.1) * h;
+        ctx.lineWidth = Math.max(1, w * 0.005);
+        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - w * 0.012, ry + h * 0.045); ctx.stroke();
+      }
+    }
+
+    function drawRainyLofts(ctx, w, h, t) {
+      const bg = ctx.createLinearGradient(0, 0, 0, h);
+      bg.addColorStop(0, '#0d061f');
+      bg.addColorStop(0.5, '#260d47');
+      bg.addColorStop(1, '#4c145e');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      // Warm fairy lights bokeh
+      for (let i = 0; i < 16; i++) {
+        const p = PARTICLES[i];
+        const fx = (i / 15) * w;
+        const fy = h * 0.22 + Math.sin(i * 0.7) * h * 0.05;
+        const glow = 0.65 + 0.35 * Math.sin(t * 2.1 + p.phase);
+        const r = w * 0.075;
+        const g = ctx.createRadialGradient(fx, fy, 0, fx, fy, r);
+        g.addColorStop(0, `rgba(255, 224, 150, ${0.85 * glow})`);
+        g.addColorStop(1, 'rgba(255, 180, 100, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(fx, fy, r, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Raindrops on window glass
+      ctx.strokeStyle = 'rgba(235, 215, 255, 0.55)';
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 30; i++) {
+        const p = PARTICLES[i];
+        const rx = p.x * w;
+        const ry = ((p.y + t * p.speed * 1.45) % 1.15 - 0.1) * h;
+        ctx.lineWidth = Math.max(1, w * 0.006);
+        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - w * 0.01, ry + h * 0.04); ctx.stroke();
+      }
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+      ctx.font = `600 ${Math.round(w * 0.115)}px Roboto, sans-serif`;
+      ctx.fillText('00:00', w * 0.5, h * 0.44);
+      ctx.textAlign = 'left';
+    }
+
+    function drawBunnyCloud(ctx, w, h, t) {
+      const bg = ctx.createLinearGradient(0, 0, w, h);
+      bg.addColorStop(0, '#ffe0f0');
+      bg.addColorStop(1, '#d2a8ff');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      // Soft sunlight bokeh
+      for (let i = 0; i < 12; i++) {
+        const p = PARTICLES[i];
+        const g = ctx.createRadialGradient(p.x * w, p.y * h, 0, p.x * w, p.y * h, w * 0.15);
+        g.addColorStop(0, 'rgba(255,255,255,0.45)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x * w, p.y * h, w * 0.15, 0, Math.PI * 2); ctx.fill();
+      }
+
+      const bob = Math.sin(t * 2.3) * h * 0.01;
+      const noseTwitch = Math.sin(t * 9.5) * w * 0.009;
+      ctx.save();
+      ctx.translate(w * 0.5, h * 0.52 + bob);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(-w * 0.11, -h * 0.22, w * 0.075, h * 0.14, -0.18, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w * 0.11, -h * 0.22, w * 0.075, h * 0.14, 0.18, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffb5d2';
+      ctx.beginPath(); ctx.ellipse(-w * 0.11, -h * 0.22, w * 0.036, h * 0.095, -0.18, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(w * 0.11, -h * 0.22, w * 0.036, h * 0.095, 0.18, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(0, h * 0.08, w * 0.32, h * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, -h * 0.04, w * 0.23, h * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+
+      [-w * 0.085, w * 0.085].forEach(ex => {
+        ctx.fillStyle = '#241329'; ctx.beginPath(); ctx.arc(ex, -h * 0.045, w * 0.032, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(ex - w * 0.01, -h * 0.052, w * 0.011, 0, Math.PI * 2); ctx.fill();
+      });
+
+      ctx.fillStyle = '#ff7eb3';
+      ctx.beginPath(); ctx.ellipse(noseTwitch, -h * 0.015, w * 0.025, h * 0.014, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    function drawRelatableBangla(ctx, w, h, t) {
+      const bg = ctx.createLinearGradient(0, 0, w, h);
+      bg.addColorStop(0, '#130521');
+      bg.addColorStop(0.5, '#340b52');
+      bg.addColorStop(1, '#190429');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      // Soft ambient neon blobs
+      for (let i = 0; i < 6; i++) {
+        const p = PARTICLES[i];
+        const bx = (p.x + Math.sin(t * 0.5 + i) * 0.1) * w;
+        const by = (p.y + Math.cos(t * 0.4 + i) * 0.08) * h;
+        const g = ctx.createRadialGradient(bx, by, 0, bx, by, w * 0.36);
+        g.addColorStop(0, i % 2 === 0 ? 'rgba(236,72,153,0.28)' : 'rgba(139,92,246,0.28)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(bx, by, w * 0.36, 0, Math.PI * 2); ctx.fill();
+      }
+
+      const pulseY = Math.sin(t * 2.4) * h * 0.008;
+      ctx.save();
+      ctx.translate(w * 0.5, h * 0.47 + pulseY);
+      ctx.textAlign = 'center';
+
+      const lines = ['"ekhon ghumabo" at 11:55 PM', 'still replying "ghumo jaaa"', 'at 2:30 AM 💀💜'];
+      ctx.font = `700 ${Math.round(w * 0.055)}px Roboto, Inter, sans-serif`;
+
+      lines.forEach((line, idx) => {
+        const ly = (idx - 1) * (h * 0.068);
+        const tw = ctx.measureText(line).width + w * 0.09;
+        const th = h * 0.052;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.beginPath(); ctx.roundRect(-tw / 2, ly - th * 0.68, tw, th, w * 0.03); ctx.fill();
+        ctx.fillStyle = '#1b0729';
+        ctx.fillText(line, 0, ly);
+      });
+      ctx.restore();
+    }
+
+    function drawSunsetVibes(ctx, w, h, t) {
+      // Golden ocean horizon sky
+      const sky = ctx.createLinearGradient(0, 0, 0, h * 0.58);
+      sky.addColorStop(0, '#2a114b');
+      sky.addColorStop(0.45, '#b8326a');
+      sky.addColorStop(0.82, '#fb923c');
+      sky.addColorStop(1, '#fde047');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, w, h * 0.58);
+
+      // Glowing sun on horizon
+      const sunGrad = ctx.createRadialGradient(w * 0.5, h * 0.54, w * 0.02, w * 0.5, h * 0.54, w * 0.34);
+      sunGrad.addColorStop(0, 'rgba(255, 254, 224, 1)');
+      sunGrad.addColorStop(0.35, 'rgba(253, 224, 71, 0.85)');
+      sunGrad.addColorStop(1, 'rgba(251, 146, 60, 0)');
+      ctx.fillStyle = sunGrad;
+      ctx.beginPath(); ctx.arc(w * 0.5, h * 0.54, w * 0.34, 0, Math.PI * 2); ctx.fill();
+
+      // Ocean
+      const sea = ctx.createLinearGradient(0, h * 0.57, 0, h);
+      sea.addColorStop(0, '#7c2d52');
+      sea.addColorStop(1, '#1c0b2e');
+      ctx.fillStyle = sea;
+      ctx.fillRect(0, h * 0.57, w, h * 0.43);
+
+      // Shimmering water reflections
+      for (let i = 0; i < 18; i++) {
+        const prog = i / 17;
+        const ry = h * 0.59 + prog * h * 0.38;
+        const rw = w * (0.28 - prog * 0.14) + Math.sin(t * 2.5 + i) * w * 0.04;
+        ctx.fillStyle = `rgba(254, 215, 130, ${0.55 - prog * 0.32})`;
+        ctx.beginPath(); ctx.roundRect(w * 0.5 - rw / 2, ry, rw, h * 0.008, 4); ctx.fill();
+      }
+    }
+
+    function syncCanvasSize(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return null;
+      const dpr = Math.min(window.devicePixelRatio || 2, 3.5);
+      const targetW = Math.round(rect.width * dpr);
+      const targetH = Math.round(rect.height * dpr);
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+      }
+      return { w: targetW, h: targetH };
+    }
+
+    function animateAllReels(now) {
+      const t = now * 0.001;
+      const chatScreen = document.getElementById('chatScreen');
+      if (chatScreen.classList.contains('active')) {
+        document.querySelectorAll('canvas[data-reel-theme]').forEach(canvas => {
+          const dims = syncCanvasSize(canvas);
+          if (!dims) return;
+          drawReelFrame(canvas.getContext('2d'), dims.w, dims.h, canvas.dataset.reelTheme, t, false);
+        });
+      }
+
+      const modal = document.getElementById('reelModal');
+      if (!modal.classList.contains('hidden') && state.activeReelId) {
+        const chat = getActiveChat();
+        const msg = chat?.messages.find(m => m.id === state.activeReelId);
+        if (msg && msg.reel) {
+          const modalCanvas = document.getElementById('reelModalCanvas');
+          const dims = syncCanvasSize(modalCanvas);
+          if (dims) drawReelFrame(modalCanvas.getContext('2d'), dims.w, dims.h, msg.reel.type, t, true);
+
+          // Update real-time bottom white progress scrubber (12-second loop)
+          const elapsed = ((now - state.reelStartTime) % 12000) / 12000;
+          document.getElementById('reelProgressFill').style.width = `${(elapsed * 100).toFixed(2)}%`;
+        }
+      }
+      requestAnimationFrame(animateAllReels);
+    }
+
+    // =========================================================================
+    // 4. WEB AUDIO API LO-FI AMBIENT SYNTH FOR REELS PLAYER (MUTED BY DEFAULT)
+    // =========================================================================
+    let lofiCtx = null;
+    let lofiTimer = null;
+    let lofiChordIdx = 0;
+    const LOFI_CHORDS = [
+      [261.63, 329.63, 392.00, 493.88], // Cmaj7
+      [220.00, 261.63, 329.63, 392.00], // Am7
+      [174.61, 220.00, 261.63, 329.63], // Fmaj7
+      [196.00, 246.94, 293.66, 349.23]  // G7
+    ];
+
+    function startLofiAudio() {
+      try {
+        if (!lofiCtx) {
+          lofiCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (lofiCtx.state === 'suspended') lofiCtx.resume();
+        stopLofiAudio(false);
+
+        const playChord = () => {
+          if (!lofiCtx || state.reelMuted || document.getElementById('reelModal').classList.contains('hidden')) return;
+          const chord = LOFI_CHORDS[lofiChordIdx % LOFI_CHORDS.length];
+          lofiChordIdx++;
+          const now = lofiCtx.currentTime;
+
+          const filter = lofiCtx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(680, now);
+          filter.connect(lofiCtx.destination);
+
+          chord.forEach((freq, i) => {
+            const osc = lofiCtx.createOscillator();
+            const gain = lofiCtx.createGain();
+            osc.type = i === 0 ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.028, now + 0.35);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.35);
+            osc.connect(gain);
+            gain.connect(filter);
+            osc.start(now + i * 0.04);
+            osc.stop(now + 2.45);
+          });
+        };
+
+        playChord();
+        lofiTimer = setInterval(playChord, 2400);
+      } catch (e) {}
+    }
+
+    function stopLofiAudio(closeAll = false) {
+      if (lofiTimer) {
+        clearInterval(lofiTimer);
+        lofiTimer = null;
+      }
+      if (closeAll && lofiCtx && lofiCtx.state === 'running') {
+        try { lofiCtx.suspend(); } catch (e) {}
+      }
+    }
+
+    // =========================================================================
+    // 5. WALLPAPER RENDERER FOR ALL 5 INSTAGRAM THEMES
+    // =========================================================================
+    function renderThemeWallpaper(themeKey) {
+      const layer = document.getElementById('themeWallpaperLayer');
+      if (themeKey === 'love') {
+        layer.innerHTML = `
+          <svg class="w-full h-full" viewBox="0 0 430 880" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="loveBg" x1="12%" y1="0%" x2="88%" y2="100%">
+                <stop offset="0%" stop-color="#2d083e" />
+                <stop offset="36%" stop-color="#4b0f5b" />
+                <stop offset="70%" stop-color="#741582" />
+                <stop offset="100%" stop-color="#480d57" />
+              </linearGradient>
+              <radialGradient id="hotPink3D" cx="32%" cy="28%" r="76%">
+                <stop offset="0%" stop-color="#ff459d" />
+                <stop offset="45%" stop-color="#ff006e" />
+                <stop offset="100%" stop-color="#b80052" />
+              </radialGradient>
+              <radialGradient id="magenta3D" cx="30%" cy="28%" r="76%">
+                <stop offset="0%" stop-color="#f05cff" />
+                <stop offset="48%" stop-color="#d400f0" />
+                <stop offset="100%" stop-color="#8b00a8" />
+              </radialGradient>
+              <radialGradient id="deepRose3D" cx="35%" cy="28%" r="78%">
+                <stop offset="0%" stop-color="#e82482" />
+                <stop offset="55%" stop-color="#b8005e" />
+                <stop offset="100%" stop-color="#6b003b" />
+              </radialGradient>
+              <filter id="heartDepth" x="-25%" y="-25%" width="150%" height="150%">
+                <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1c022b" flood-opacity="0.38" />
+              </filter>
+              <path id="igHeart" d="M 0 -22 C -18 -49, -63 -41, -63 -2 C -63 33, -22 57, 0 75 C 22 57, 63 33, 63 -2 C 63 -41, 18 -49, 0 -22 Z" />
+              <path id="xoxoArc" d="M 206 742 Q 262 712 316 654" fill="none" />
+            </defs>
+            <rect width="430" height="880" fill="url(#loveBg)" />
+            <g transform="translate(86, 204) rotate(-18) scale(1.16)" opacity="0.74" filter="url(#heartDepth)">
+              <use href="#igHeart" x="-11" y="-6" fill="#7a0099" opacity="0.55" />
+              <use href="#igHeart" fill="url(#magenta3D)" />
+            </g>
+            <g transform="translate(292, 368) rotate(14) scale(1.42)" opacity="0.68" filter="url(#heartDepth)">
+              <use href="#igHeart" x="-12" y="-8" fill="#72008f" opacity="0.52" />
+              <use href="#igHeart" fill="url(#magenta3D)" />
+            </g>
+            <g transform="translate(164, 466) rotate(-14) scale(2.18)" opacity="0.92" filter="url(#heartDepth)">
+              <use href="#igHeart" x="-9" y="-5" fill="#9c004a" opacity="0.68" />
+              <use href="#igHeart" fill="url(#hotPink3D)" />
+            </g>
+            <g transform="translate(288, 702) rotate(-16) scale(1.48)" opacity="0.82" filter="url(#heartDepth)">
+              <use href="#igHeart" x="-10" y="-6" fill="#7c009c" opacity="0.58" />
+              <use href="#igHeart" fill="url(#magenta3D)" />
+            </g>
+            <text fill="rgba(255, 206, 248, 0.36)" font-size="25" font-weight="600" letter-spacing="4.5" font-family="Georgia, serif">
+              <textPath href="#xoxoArc" startOffset="10%">XOXO</textPath>
+            </text>
+            <g transform="translate(90, 808) rotate(12) scale(1.26)" opacity="0.78" filter="url(#heartDepth)">
+              <use href="#igHeart" x="-8" y="-4" fill="#630035" opacity="0.55" />
+              <use href="#igHeart" fill="url(#deepRose3D)" />
+            </g>
+          </svg>`;
+      } else if (themeKey === 'sunset') {
+        layer.innerHTML = `
+          <svg class="w-full h-full" viewBox="0 0 430 880" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <radialGradient id="sun1" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ff6b8b" stop-opacity="0.34"/><stop offset="100%" stop-color="#ff6b8b" stop-opacity="0"/></radialGradient>
+              <radialGradient id="sun2" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fb923c" stop-opacity="0.22"/><stop offset="100%" stop-color="#fb923c" stop-opacity="0"/></radialGradient>
+            </defs>
+            <circle cx="95" cy="240" r="170" fill="url(#sun1)"/>
+            <circle cx="340" cy="540" r="210" fill="url(#sun2)"/>
+            <circle cx="150" cy="720" r="150" fill="url(#sun1)"/>
+          </svg>`;
+      } else if (themeKey === 'midnight') {
+        const stars = Array.from({ length: 38 }, (_, i) => {
+          const cx = (i * 47 + 19) % 420;
+          const cy = (i * 89 + 31) % 860;
+          const r = 0.9 + (i % 3) * 0.65;
+          const delay = (i % 6) * 0.5;
+          return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#e0e7ff" class="twinkle" style="animation-delay:${delay}s"/>`;
+        }).join('');
+        layer.innerHTML = `<svg class="w-full h-full" viewBox="0 0 430 880" preserveAspectRatio="xMidYMid slice">${stars}</svg>`;
+      } else {
+        layer.innerHTML = '';
+      }
+    }
+
+    // =========================================================================
+    // 6. INITIAL 5 DM PERSONAS & EXACT PRE-LOADED THREADS
+    // =========================================================================
+    function makeCadence() {
+      return { cycleIndex: 0, chatsSinceLastReel: 0, buffer: 0, loopCount: 0 };
+    }
+
+    function createDarlinStarterMessages() {
+      const now = Date.now();
+      return [
+        { id: 'd_t1', sender: 'divider', text: 'Today 23:58', createdAt: now - 360000, isStarter: true },
+        { id: 'd1', sender: 'received', type: 'text', text: 'Aito aikhane e', replyTo: { label: 'Replied to you', text: 'chole jachis ?', isOriginalSent: true }, reaction: null, createdAt: now - 350000, isStarter: true },
+        { id: 'd2', sender: 'received', type: 'text', text: 'Achi', reaction: null, createdAt: now - 345000, isStarter: true },
+        { id: 'd_sys', sender: 'system', type: 'nickname', createdAt: now - 340000, isStarter: true },
+        { id: 'd3', sender: 'sent', type: 'text', text: 'tuuui', replyTo: { label: 'You replied', text: 'Aito aikhane e', isOriginalSent: false }, reaction: null, createdAt: now - 330000, isStarter: true },
+        { id: 'd4', sender: 'sent', type: 'text', text: 'amr', reaction: null, createdAt: now - 328000, isStarter: true },
+        { id: 'd5', sender: 'sent', type: 'text', text: 'babby gurk amr', reaction: null, createdAt: now - 326000, isStarter: true },
+        { id: 'd6', sender: 'sent', type: 'text', text: 'darling', reaction: null, createdAt: now - 324000, isStarter: true },
+        { id: 'd7', sender: 'sent', type: 'text', text: 'I love you the most', reaction: null, createdAt: now - 322000, isStarter: true },
+        { id: 'd8', sender: 'sent', type: 'text', text: 'ki korchis Mmm??', reaction: null, createdAt: now - 320000, isStarter: true },
+        { id: 'd9', sender: 'received', type: 'text', text: 'Ghumo', reaction: null, createdAt: now - 300000, isStarter: true },
+        { id: 'd10', sender: 'received', type: 'text', text: 'Jaaa', reaction: null, createdAt: now - 298000, isStarter: true },
+        { id: 'd_t2', sender: 'divider', text: '00:00', createdAt: now - 250000, isStarter: true },
+        { id: 'd11', sender: 'received', type: 'text', text: 'Ghumobi ha ki na?', reaction: null, createdAt: now - 245000, isStarter: true },
+        { id: 'd12', sender: 'sent', type: 'text', text: 'rhrr', reaction: null, createdAt: now - 230000, isStarter: true },
+        { id: 'd13', sender: 'sent', type: 'text', text: 'jachi', reaction: null, createdAt: now - 228000, isStarter: true },
+        { id: 'd14', sender: 'sent', type: 'text', text: 'sorey', reaction: null, createdAt: now - 226000, isStarter: true },
+        { id: 'd15', sender: 'sent', type: 'text', text: 'soeey', reaction: null, createdAt: now - 224000, isStarter: true },
+        { id: 'd16', sender: 'sent', type: 'text', text: 'emrike', reaction: null, createdAt: now - 222000, isStarter: true },
+        { id: 'd17', sender: 'received', type: 'text', text: 'Yss', reaction: null, createdAt: now - 210000, isStarter: true },
+        { id: 'd18', sender: 'sent', type: 'text', text: 'tui khujiii', reaction: null, createdAt: now - 200000, isStarter: true },
+        { id: 'd19', sender: 'received', type: 'text', text: 'Ghumo', reaction: null, createdAt: now - 190000, isStarter: true },
+        { id: 'd20', sender: 'sent', type: 'text', text: 'amr bestttest', reaction: null, createdAt: now - 180000, isStarter: true },
+        { id: 'd21', sender: 'sent', type: 'text', text: 'feunfs', reaction: null, createdAt: now - 178000, isStarter: true },
+        { id: 'd22', sender: 'received', type: 'text', text: 'Alaaaaaaaabuuuu theee mosst', reaction: null, createdAt: now - 165000, isStarter: true },
+        { id: 'd23', sender: 'sent', type: 'text', text: 'wife', reaction: null, createdAt: now - 150000, isStarter: true },
+        { id: 'd24', sender: 'sent', type: 'text', text: 'love and partner and aib', reaction: null, createdAt: now - 148000, isStarter: true },
+        { id: 'd25', sender: 'received', type: 'text', text: 'Yess', reaction: null, createdAt: now - 135000, isStarter: true },
+        { id: 'd26', sender: 'received', type: 'text', text: 'Ja abr ghumo', reaction: null, createdAt: now - 133000, isStarter: true },
+        { id: 'd27', sender: 'sent', type: 'text', text: 'ha', reaction: null, createdAt: now - 120000, isStarter: true },
+        { id: 'd28', sender: 'sent', type: 'text', text: 'jachu', reaction: null, createdAt: now - 118000, isStarter: true },
+        { id: 'd29', sender: 'sent', type: 'text', text: 'rurrr', reaction: null, createdAt: now - 116000, isStarter: true },
+        { id: 'd30', sender: 'sent', type: 'text', text: 'tuio', reaction: null, createdAt: now - 114000, isStarter: true },
+        { id: 'd31', sender: 'sent', type: 'text', text: 'please', reaction: null, createdAt: now - 112000, isStarter: true },
+        { id: 'd32', sender: 'received', type: 'text', text: 'Ghumo', reaction: null, createdAt: now - 100000, isStarter: true },
+        { id: 'd33', sender: 'sent', type: 'text', text: 'ghhmkn', reaction: null, createdAt: now - 85000, isStarter: true },
+        {
+          id: 'd34',
+          sender: 'received',
+          type: 'reel',
+          reel: {
+            type: 'sugar_glider',
+            handle: 'glidervibes1',
+            caption: REEL_CATALOG.sugar_glider.defaultCaption,
+            likesNum: 84620,
+            isLiked: false,
+            isFollowing: false
+          },
+          reaction: null,
+          createdAt: now - 60000,
+          isStarter: true
+        }
+      ];
+    }
+
+    function createDefaultChats() {
+      const now = Date.now();
+      return [
+        {
+          id: 'darlin',
+          name: 'My darlin...',
+          handle: '_sugar0chw...',
+          persona: 'romantic',
+          theme: 'love',
+          category: 'primary',
+          note: 'ghumo jaaa 💕',
+          nickname: 'My honey💕🥰',
+          avatarStyle: 'romantic',
+          avatarDataUrl: null,
+          mood: 'Romantic',
+          unread: 0,
+          lastSeenSentId: 'd33',
+          cadence: makeCadence(),
+          messages: createDarlinStarterMessages()
+        },
+        {
+          id: 'rohan',
+          name: 'Rohan (Bro)',
+          handle: 'rohan.x_',
+          persona: 'bestie',
+          theme: 'classic',
+          category: 'primary',
+          note: 'chai or ride? 🏍️',
+          nickname: 'Bro',
+          avatarStyle: 'bestie',
+          avatarDataUrl: null,
+          mood: 'Playful',
+          unread: 0,
+          lastSeenSentId: null,
+          cadence: makeCadence(),
+          messages: [
+            { id: 'r_t1', sender: 'divider', text: 'Today 22:40', createdAt: now - 4200000, isStarter: true },
+            { id: 'r1', sender: 'received', type: 'text', text: 'oii bhai kothay tui??', reaction: null, createdAt: now - 4180000, isStarter: true },
+            { id: 'r2', sender: 'received', type: 'text', text: 'attendance cooked bro chai khete chol 🏍️', reaction: null, createdAt: now - 4170000, isStarter: true }
+          ]
+        },
+        {
+          id: 'aanya',
+          name: 'Aanya ✨',
+          handle: 'aanya.vibes',
+          persona: 'flirty',
+          theme: 'sunset',
+          category: 'primary',
+          note: 'sending reels ✨',
+          nickname: 'Bestie',
+          avatarStyle: 'flirty',
+          avatarDataUrl: null,
+          mood: 'Flirty',
+          unread: 0,
+          lastSeenSentId: null,
+          cadence: makeCadence(),
+          messages: [
+            { id: 'a_t1', sender: 'divider', text: 'Today 23:15', createdAt: now - 2600000, isStarter: true },
+            { id: 'a1', sender: 'received', type: 'text', text: 'found the cutest aesthetic reel ever', reaction: null, createdAt: now - 2580000, isStarter: true },
+            { id: 'a2', sender: 'received', type: 'text', text: 'u better still be awake ✨', reaction: null, createdAt: now - 2570000, isStarter: true }
+          ]
+        },
+        {
+          id: 'midnight',
+          name: 'Midnight Talks',
+          handle: 'void.thoughts',
+          persona: 'listener',
+          theme: 'midnight',
+          category: 'general',
+          note: '2am thoughts 🌙',
+          nickname: 'Wanderer',
+          avatarStyle: 'listener',
+          avatarDataUrl: null,
+          mood: 'Chill',
+          unread: 0,
+          lastSeenSentId: null,
+          cadence: makeCadence(),
+          messages: [
+            { id: 'mn_t1', sender: 'divider', text: 'Today 23:50', createdAt: now - 900000, isStarter: true },
+            { id: 'mn1', sender: 'received', type: 'text', text: 'still awake?', reaction: null, createdAt: now - 880000, isStarter: true },
+            { id: 'mn2', sender: 'received', type: 'text', text: 'do you ever feel like 2 AM is the only honest hour?', reaction: null, createdAt: now - 860000, isStarter: true }
+          ]
+        },
+        {
+          id: 'devgrind',
+          name: 'Dev Grind',
+          handle: 'code.ship.repeat',
+          persona: 'study',
+          theme: 'minimal',
+          category: 'general',
+          note: 'shipping v1 💻',
+          nickname: 'Builder',
+          avatarStyle: 'study',
+          avatarDataUrl: null,
+          mood: 'Excited',
+          unread: 0,
+          lastSeenSentId: null,
+          cadence: makeCadence(),
+          messages: [
+            { id: 'dg_t1', sender: 'divider', text: 'Today 21:30', createdAt: now - 5400000, isStarter: true },
+            { id: 'dg1', sender: 'received', type: 'text', text: 'hackathon sprint starts now', reaction: null, createdAt: now - 5380000, isStarter: true },
+            { id: 'dg2', sender: 'received', type: 'text', text: 'what are we deploying tonight? 💻', reaction: null, createdAt: now - 5370000, isStarter: true }
+          ]
+        },
+        {
+          id: 'mili', name: 'Mili 🌷', handle: 'mili.afterhours', persona: 'listener', theme: 'sunset', category: 'general',
+          note: 'tell me everything 🌷', nickname: 'Mils', avatarStyle: 'listener', avatarDataUrl: null, mood: 'Chill', unread: 0,
+          lastSeenSentId: null, cadence: makeCadence(), messages: [
+            { id: 'mi1', sender: 'received', type: 'text', text: 'oiii, how was your day? 🌷', reaction: null, createdAt: now - 2100000, isStarter: true },
+            { id: 'mi2', sender: 'received', type: 'text', text: 'I have so much gossip to tell you', reaction: null, createdAt: now - 2080000, isStarter: true }
+          ]
+        },
+        {
+          id: 'kabir', name: 'Kabir 📸', handle: 'kabir.frames', persona: 'flirty', theme: 'midnight', category: 'general',
+          note: 'golden hour hunter 📸', nickname: 'K', avatarStyle: 'flirty', avatarDataUrl: null, mood: 'Playful', unread: 0,
+          lastSeenSentId: null, cadence: makeCadence(), messages: [
+            { id: 'ka1', sender: 'received', type: 'text', text: 'caught the prettiest sky today', reaction: null, createdAt: now - 3300000, isStarter: true },
+            { id: 'ka2', sender: 'received', type: 'text', text: 'you would have loved this frame ✨', reaction: null, createdAt: now - 3280000, isStarter: true }
+          ]
+        },
+        {
+          id: 'tuhin', name: 'Tuhin 🎧', handle: 'tuhin.onloop', persona: 'bestie', theme: 'classic', category: 'general',
+          note: 'one more song 🎧', nickname: 'Tune', avatarStyle: 'bestie', avatarDataUrl: null, mood: 'Playful', unread: 0,
+          lastSeenSentId: null, cadence: makeCadence(), messages: [
+            { id: 'tu1', sender: 'received', type: 'text', text: 'bro found a track for your late night playlist', reaction: null, createdAt: now - 1500000, isStarter: true },
+            { id: 'tu2', sender: 'received', type: 'text', text: 'headphones on. trust me 🎧', reaction: null, createdAt: now - 1480000, isStarter: true }
+          ]
+        }
+      ];
+    }
+
+    // =========================================================================
+    // 7. 24-HOUR ROLLING PERSISTENCE & APPLICATION STATE
+    // =========================================================================
+    const state = {
+      activeScreen: 'chat',
+      activeChatId: 'darlin',
+      inboxTab: 'primary',
+      searchQuery: '',
+      yourNote: '',
+      yourNoteUpdatedAt: 0,
+      autoContinueEnabled: true,
+      offlineOnly: false,
+      chats: createDefaultChats(),
+      replyingTo: null,
+      isTypingMap: {},
+      activeReelId: null,
+      reelStartTime: 0,
+      reelMuted: true,
+      pickerMsgId: null
+    };
+
+    function pruneExpired24hMessages() {
+      const cutoff = Date.now() - TTL_24H_MS;
+      let changed = false;
+
+      if (state.yourNote && state.yourNoteUpdatedAt && state.yourNoteUpdatedAt < cutoff) {
+        state.yourNote = '';
+        state.yourNoteUpdatedAt = 0;
+        changed = true;
+      }
+
+      state.chats.forEach(chat => {
+        const filtered = chat.messages.filter(m => m.isStarter || (m.createdAt || 0) >= cutoff);
+        if (filtered.length !== chat.messages.length) {
+          chat.messages = filtered;
+          changed = true;
+        }
+        if (chat.messages.length === 0 && chat.id === 'darlin') {
+          chat.messages = createDarlinStarterMessages();
+          changed = true;
+        }
+      });
+
+      if (changed) saveAppState();
+    }
+
+    function loadAppState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (Array.isArray(saved.chats) && saved.chats.length > 0) {
+          state.chats = saved.chats;
+          const savedIds = new Set(state.chats.map(c => c.id));
+          createDefaultChats().filter(c => !savedIds.has(c.id)).forEach(c => state.chats.push(c));
+        }
+        if (typeof saved.autoContinueEnabled === 'boolean') state.autoContinueEnabled = saved.autoContinueEnabled;
+        if (typeof saved.offlineOnly === 'boolean') state.offlineOnly = saved.offlineOnly;
+        if (typeof saved.yourNote === 'string') {
+          state.yourNote = saved.yourNote;
+          state.yourNoteUpdatedAt = saved.yourNoteUpdatedAt || 0;
+        }
+        if (saved.activeChatId && state.chats.some(c => c.id === saved.activeChatId)) {
+          state.activeChatId = saved.activeChatId;
+        }
+      } catch (e) {}
+      pruneExpired24hMessages();
+    }
+
+    function saveAppState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          activeChatId: state.activeChatId,
+          autoContinueEnabled: state.autoContinueEnabled,
+          offlineOnly: state.offlineOnly,
+          yourNote: state.yourNote,
+          yourNoteUpdatedAt: state.yourNoteUpdatedAt,
+          chats: state.chats
+        }));
+      } catch (e) {}
+    }
+
+    function getActiveChat() {
+      return state.chats.find(c => c.id === state.activeChatId) || state.chats[0];
+    }
+
+    // =========================================================================
+    // 8. MOOD DETECTION & ADAPTIVE PATTERN-BASED REEL CADENCE
+    // =========================================================================
+
+    // All roleplay context uses real India Standard Time, even if the device timezone differs.
+    function getIndiaTimeContext() {
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true
+      }).formatToParts(now);
+      const get = type => parts.find(part => part.type === type)?.value || '';
+      const hour = Number(new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', hourCycle: 'h23' }).format(now));
+      let dayPart = 'daytime';
+      if (hour >= 5 && hour < 12) dayPart = 'morning';
+      else if (hour >= 12 && hour < 17) dayPart = 'afternoon';
+      else if (hour >= 17 && hour < 21) dayPart = 'evening';
+      else dayPart = 'late night';
+      return {
+        dateTime: `${get('weekday')}, ${get('day')} ${get('month')} ${get('year')} · ${get('hour')}:${get('minute')} ${get('dayPeriod')} IST`,
+        clockTime: `${get('hour')}:${get('minute')} ${get('dayPeriod')}`,
+        hour, dayPart,
+        greeting: hour < 12 ? 'good morning' : hour < 17 ? 'good afternoon' : hour < 21 ? 'good evening' : 'late night'
+      };
+    }
+
+    function formatISTTimestamp(timestamp) {
+      if (!timestamp) return 'time unknown';
+      return new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata', weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true
+      }).format(new Date(timestamp)) + ' IST';
+    }
+
+    function contextualReplyPool(chat, userText, mood, time) {
+      const p = chat.persona;
+      const lower = (userText || '').toLowerCase();
+      if (/\b(hi|hey|hello|hii|oii|good morning|good night|good evening)\b/.test(lower)) {
+        if (p === 'romantic') return time.hour >= 21 || time.hour < 5 ? ['Oii amar jaan 💕', 'Ekhono jege acho?', 'Achi toh, bolo shona'] : time.hour < 12 ? ['Good morning babyyy ☀️', 'Ghum bhalo holo?'] : ['Oii babyyy', 'Ki korcho ekhon?'];
+        if (p === 'bestie') return time.hour >= 21 || time.hour < 5 ? ['oi raat jaga specimen 💀', 'ki scene ekhono?'] : ['oyeeee bhaiii', 'ki khobor bol'];
+        if (p === 'listener') return time.hour >= 21 || time.hour < 5 ? ['hey, still up with me 🌙', 'how is your mind tonight?'] : ['hey you 🌿', 'how is today treating you?'];
+        return ['heyyy ✨', 'what are we talking about today?'];
+      }
+      if (/\b(where|kothay|location|ashbi|asbi|coming)\b/.test(lower)) return p === 'romantic' ? ['Aikhanei achi tomar jonno 💗', 'Tumi kothay?'] : p === 'bestie' ? ['basically wherever the chai is ☕', 'tor location de'] : ['right here in the chat ✨', 'where are you headed?'];
+      if (/\b(exam|class|college|assignment|project|deadline|study|porashona)\b/.test(lower)) return p === 'study' ? ['okay, first one small task', 'what is the deadline exactly?'] : p === 'bestie' ? ['attendance er ki obostha 💀', 'deadline kobe bol?'] : ['you got this, one step at a time 🌷', 'which part is stressing you?'];
+      if (/\b(food|eat|kheye|khey|khawa|lunch|dinner|breakfast|hungry)\b/.test(lower)) return p === 'romantic' ? ['Kheye nao agey please 🥺', 'Ki khete ichhe korche?'] : ['food break is mandatory 😭', 'ki khete jacchis?'];
+      if (/\b(bye|gtg|going|berocchi|jacchi|leave)\b/.test(lower)) return p === 'romantic' ? ['Accha jao, careful thakbe 💕', 'pore abar kotha bolbo'] : ['ja ja, catch you later 🤝', 'text when you are free'];
+      if (/\b(why|keno|because|how|kibhabe|what|ki|which|who)\b/.test(lower)) return p === 'listener' ? ['tell me a little more', 'what made you think of that? 🌙'] : p === 'bestie' ? ['good question bhai 😭', 'context ta de first'] : ['wait, explain that part to me', 'I am listening ✨'];
+      return null;
+    }
+
+    function detectUserMood(text, fallbackMood = 'Chill') {
+      const lower = (text || '').toLowerCase();
+      if (/\b(love|bhalobashi|wife|darling|honey|babby|baby|miss u|miss you|kiss|hug|jaan|shona)\b|❤️|💕|🥰|😘/.test(lower)) return 'Romantic';
+      if (/\b(ghumo|ghum|sleep|sleepy|tired|goodnight|gn|bed|nap|exhausted|ghhmkn)\b|😴|🥱/.test(lower)) return 'Sleepy';
+      if (/\b(sad|stress|stressed|anxious|cry|lonely|hurt|mon kharap|overwhelmed|sorry|sorey|soeey|bad day)\b|😢|😭|🥺|💔/.test(lower)) return 'Stressed';
+      if (/\b(cute|hot|pretty|handsome|date|flirt|blush|wink|crush|miss me)\b|😏|😉|✨/.test(lower)) return 'Flirty';
+      if (/\b(omg|yay|lets go|let's go|shipped|won|hype|amazing|awesome|pumped|deploy)\b|🔥|🚀|🎉/.test(lower)) return 'Excited';
+      if (/\b(haha|hehe|lol|lmao|bro|bhai|pagol|funny|meme|joke|roast|chai|ride)\b|😂|🤣|💀/.test(lower)) return 'Playful';
+      return fallbackMood || 'Chill';
+    }
+
+    function getCycleTarget(cadence) {
+      const base = CADENCE_PATTERN[cadence.cycleIndex % CADENCE_PATTERN.length];
+      const loopOffset = cadence.loopCount > 0 ? ((cadence.cycleIndex + cadence.loopCount) % 3) - 1 : 0;
+      const effectiveChats = Math.max(4, base.chats + loopOffset + (cadence.buffer || 0));
+      return { effectiveChats, reels: base.reels };
+    }
+
+    function advanceCadence(cadence) {
+      cadence.cycleIndex = (cadence.cycleIndex + 1) % CADENCE_PATTERN.length;
+      if (cadence.cycleIndex === 0) cadence.loopCount = (cadence.loopCount || 0) + 1;
+      cadence.chatsSinceLastReel = 0;
+      cadence.buffer = 0;
+    }
+
+    function evaluateReelAllowance(chat, userText, mood, forceReel = false) {
+      const cadence = chat.cadence || (chat.cadence = makeCadence());
+      const lower = (userText || '').toLowerCase();
+      const explicitReelRegex = /\b(reel|reels|video|dekha|meme|memes)\b|send.*reel|cute.*vid/i;
+
+      if (forceReel || explicitReelRegex.test(lower)) {
+        const wantsTwo = /\b(2|two|more|aro|duita|both)\b/i.test(lower);
+        advanceCadence(cadence);
+        saveAppState();
+        return wantsTwo ? 2 : 1;
+      }
+
+      if (mood === 'Sleepy' || mood === 'Stressed') {
+        cadence.chatsSinceLastReel += 1;
+        cadence.buffer = Math.min((cadence.buffer || 0) + 2, 4);
+      } else if (mood === 'Playful' || mood === 'Flirty' || mood === 'Excited') {
+        cadence.chatsSinceLastReel += 2;
+      } else {
+        cadence.chatsSinceLastReel += 1;
+      }
+
+      const target = getCycleTarget(cadence);
+      if (cadence.chatsSinceLastReel >= target.effectiveChats) {
+        const count = target.reels;
+        advanceCadence(cadence);
+        saveAppState();
+        return count;
+      }
+      saveAppState();
+      return 0;
+    }
+
+    function updateCadenceBadge() {
+      const badge = document.getElementById('cadenceStatusBadge');
+      const chat = getActiveChat();
+      if (!badge || !chat) return;
+      const cadence = chat.cadence || makeCadence();
+      const target = getCycleTarget(cadence);
+      const remaining = Math.max(1, target.effectiveChats - cadence.chatsSinceLastReel);
+      badge.textContent = `Next Reel Drop: in ${remaining} chat${remaining === 1 ? '' : 's'} (${target.reels} ${target.reels === 1 ? 'reel' : 'reels'})`;
+    }
+
+    // =========================================================================
+    // 9. UTILITIES & TWO-SCREEN NAVIGATION
+    // =========================================================================
+    function escapeHTML(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function getChatAvatarHTML(chat) {
+      if (chat.avatarDataUrl) {
+        return `<img src="${escapeHTML(chat.avatarDataUrl)}" alt="${escapeHTML(chat.name)}" class="w-full h-full object-cover" onerror="this.onerror=null;this.parentElement.innerHTML=getDefaultAvatarSvg('${chat.avatarStyle || chat.persona}');" />`;
+      }
+      return getDefaultAvatarSvg(chat.avatarStyle || chat.persona);
+    }
+
+    function formatLikes(n) {
+      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+      return String(n);
+    }
+
+    function formatRelativeTime(ts) {
+      if (!ts) return 'now';
+      const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+      if (diffSec < 50) return 'now';
+      const mins = Math.floor(diffSec / 60);
+      if (mins < 60) return `${mins}m`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h`;
+      return '1d';
+    }
+
+    let toastTimer = null;
+    function showToast(text) {
+      const el = document.getElementById('toast');
+      el.textContent = text;
+      el.classList.remove('opacity-0');
+      el.classList.add('opacity-100');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        el.classList.remove('opacity-100');
+        el.classList.add('opacity-0');
+      }, 2200);
+    }
+
+    function copyReelLink() {
+      const ta = document.createElement('textarea');
+      ta.value = 'https://instagram.com/reels/ig-dm-share';
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      showToast('Reel link copied!');
+    }
+
+    function openChat(chatId, noteReplyText = null) {
+      const chat = state.chats.find(c => c.id === chatId);
+      if (!chat) return;
+      state.activeChatId = chatId;
+      state.activeScreen = 'chat';
+      chat.unread = 0;
+      clearReply();
+      hideEmojiPicker();
+      document.getElementById('quickMenu').classList.add('hidden');
+
+      if (noteReplyText) {
+        state.replyingTo = { sender: 'received', type: 'text', text: `Note: "${noteReplyText}"` };
+        document.getElementById('replyBarTitle').textContent = `Replying to ${chat.name}'s note`;
+        document.getElementById('replyBarText').textContent = noteReplyText;
+        document.getElementById('replyBar').classList.remove('hidden');
+      }
+
+      const chatScreen = document.getElementById('chatScreen');
+      chatScreen.setAttribute('data-theme', chat.theme || 'classic');
+      renderThemeWallpaper(chat.theme || 'classic');
+
+      document.getElementById('inboxScreen').classList.add('pushed-back');
+      chatScreen.classList.add('active');
+
+      updateChatHeader();
+      updateCadenceBadge();
+      renderChat(true);
+      renderInbox();
+      saveAppState();
+      resetInactivityTimer();
+    }
+
+    function openInbox() {
+      state.activeScreen = 'inbox';
+      hideEmojiPicker();
+      document.getElementById('quickMenu').classList.add('hidden');
+      document.getElementById('chatScreen').classList.remove('active');
+      document.getElementById('inboxScreen').classList.remove('pushed-back');
+      renderInbox();
+    }
+
+    // =========================================================================
+    // 10. RENDER INBOX & NOTES
+    // =========================================================================
+    function renderInbox() {
+      renderNotesRow();
+      renderThreadList();
+      updateBackUnreadBadge();
+    }
+
+    function updateBackUnreadBadge() {
+      const otherUnread = state.chats.filter(c => c.id !== state.activeChatId).reduce((s, c) => s + (c.unread || 0), 0);
+      const badge = document.getElementById('backUnreadBadge');
+      if (otherUnread > 0) {
+        badge.textContent = otherUnread > 9 ? '9+' : String(otherUnread);
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function renderNotesRow() {
+      const row = document.getElementById('notesRow');
+      row.innerHTML = '';
+
+      const yourWrap = document.createElement('div');
+      yourWrap.className = 'flex flex-col items-center shrink-0 w-[76px] cursor-pointer';
+      yourWrap.innerHTML = `
+        <div class="relative flex flex-col items-center">
+          <div class="note-bubble mb-[-10px] z-10 text-white/85">${state.yourNote ? escapeHTML(state.yourNote) : 'Note...'}</div>
+          <div class="relative w-[64px] h-[64px] rounded-full bg-[#1f1f24] border border-white/15 flex items-center justify-center overflow-hidden">
+            <span class="text-2xl">🎧</span>
+            <span class="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#0095f6] text-white text-xs font-bold flex items-center justify-center ring-2 ring-black">+</span>
+          </div>
+        </div>
+        <span class="text-[11.5px] text-white/65 mt-1.5 truncate w-full text-center">Your note</span>
+      `;
+      yourWrap.addEventListener('click', openYourNoteEditor);
+      row.appendChild(yourWrap);
+
+      state.chats.forEach(chat => {
+        const item = document.createElement('div');
+        item.className = 'flex flex-col items-center shrink-0 w-[76px] cursor-pointer active:scale-95 transition';
+        item.innerHTML = `
+          <div class="relative flex flex-col items-center">
+            <div class="note-bubble mb-[-10px] z-10">${escapeHTML(chat.note || 'online ✨')}</div>
+            <div class="relative w-[64px] h-[64px] rounded-full overflow-hidden ring-1 ring-white/20">
+              ${getChatAvatarHTML(chat)}
+              <span class="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-400 rounded-full ring-2 ring-black"></span>
+            </div>
+          </div>
+          <span class="text-[11.5px] text-white/90 mt-1.5 truncate w-full text-center">${escapeHTML(chat.name.split(' ')[0])}</span>
+        `;
+        item.addEventListener('click', () => openChat(chat.id, chat.note));
+        row.appendChild(item);
+      });
+    }
+
+    function renderThreadList() {
+      const list = document.getElementById('threadList');
+      list.innerHTML = '';
+
+      const q = state.searchQuery.trim().toLowerCase();
+      const filtered = state.chats
+        .filter(chat => {
+          if (q) return chat.name.toLowerCase().includes(q) || chat.handle.toLowerCase().includes(q);
+          if (state.inboxTab === 'requests') return chat.category === 'requests';
+          if (state.inboxTab === 'general') return chat.category === 'general';
+          return chat.category === 'primary' || !chat.category;
+        })
+        .sort((a, b) => (b.messages[b.messages.length - 1]?.createdAt || 0) - (a.messages[a.messages.length - 1]?.createdAt || 0));
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="py-12 px-6 text-center text-sm text-white/50">${state.inboxTab === 'requests' ? 'No message requests right now.' : 'No matching chats.'}</div>`;
+        return;
+      }
+
+      filtered.forEach(chat => {
+        const lastMsg = [...chat.messages].reverse().find(m => m.sender === 'sent' || m.sender === 'received');
+        let preview = 'Say hi 👋';
+        if (lastMsg) {
+          if (lastMsg.type === 'reel') preview = lastMsg.sender === 'sent' ? 'You sent a reel' : `Sent a reel by @${lastMsg.reel.handle}`;
+          else preview = (lastMsg.sender === 'sent' ? 'You: ' : '') + lastMsg.text;
+        }
+        const relTime = formatRelativeTime(lastMsg?.createdAt);
+        const hasUnread = (chat.unread || 0) > 0;
+
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-3.5 px-4 py-2.5 hover:bg-white/[0.04] active:bg-white/[0.08] cursor-pointer transition';
+        row.innerHTML = `
+          <div class="relative w-[56px] h-[56px] shrink-0">
+            <div class="w-full h-full rounded-full ${hasUnread ? 'ig-story-ring' : ''}">
+              <div class="w-full h-full rounded-full overflow-hidden ${hasUnread ? 'ring-2 ring-black' : 'ring-1 ring-white/15'}">
+                ${getChatAvatarHTML(chat)}
+              </div>
+            </div>
+            <span class="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-400 rounded-full ring-2 ring-black"></span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-[14.5px] ${hasUnread ? 'font-bold text-white' : 'font-semibold text-white/95'} truncate">${escapeHTML(chat.name)}</div>
+            <div class="flex items-center gap-1.5 text-[13px] ${hasUnread ? 'text-white font-semibold' : 'text-[#a8a8a8]'} mt-0.5">
+              <span class="truncate">${escapeHTML(preview)}</span>
+              <span class="shrink-0 text-[#a8a8a8] font-normal">· ${relTime}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            ${hasUnread ? `<span class="w-2.5 h-2.5 rounded-full bg-[#0095f6]"></span>` : ''}
+            <button class="p-1 text-[#a8a8a8] hover:text-white" onclick="event.stopPropagation(); showToast('Quick camera for ${escapeHTML(chat.name)} 📷')" aria-label="Camera">
+              <svg class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </button>
+          </div>
+        `;
+        row.addEventListener('click', () => openChat(chat.id));
+        list.appendChild(row);
+      });
+    }
+
+    // =========================================================================
+    // 11. RENDER ACTIVE CHAT (EXACT ANDROID SPACING, QUOTES, REEL CARDS)
+    // =========================================================================
+    function updateChatHeader() {
+      const chat = getActiveChat();
+      if (!chat) return;
+      document.getElementById('headerAvatarContainer').innerHTML = getChatAvatarHTML(chat);
+      document.getElementById('partnerNameDisplay').textContent = chat.name;
+      document.getElementById('partnerSubDisplay').textContent = state.isTypingMap[chat.id] ? 'Typing...' : chat.handle;
+      // Indian time is supplied internally to GPT; keep the Instagram-style header clean.
+      updateBackUnreadBadge();
+    }
+
+    function renderChat(scrollToBottom = false) {
+      const chat = getActiveChat();
+      if (!chat) return;
+      const chatContainer = document.getElementById('chatContainer');
+      chatContainer.innerHTML = '';
+
+      let lastSentIdx = -1;
+      for (let i = chat.messages.length - 1; i >= 0; i--) {
+        if (chat.messages[i].sender === 'sent') { lastSentIdx = i; break; }
+      }
+
+      chat.messages.forEach((msg, idx) => {
+        const prev = chat.messages[idx - 1];
+        const next = chat.messages[idx + 1];
+
+        if (msg.sender === 'divider') {
+          const divEl = document.createElement('div');
+          divEl.className = 'py-3 text-center text-[11px] font-medium text-white/55 select-none';
+          divEl.textContent = msg.text;
+          chatContainer.appendChild(divEl);
+          return;
+        }
+
+        if (msg.sender === 'system' && msg.type === 'nickname') {
+          const sysEl = document.createElement('div');
+          sysEl.className = 'py-3.5 px-3 text-center text-[12.5px] text-white/92 select-none';
+          sysEl.innerHTML = `
+            You set your nickname to <span class="font-normal">${escapeHTML(chat.nickname || 'My honey💕🥰')}</span>.
+            <button onclick="openNicknameEditor()" class="font-bold text-white hover:underline ml-0.5 cursor-pointer">Update</button>
+          `;
+          chatContainer.appendChild(sysEl);
+          return;
+        }
+
+        const samePrev = prev && prev.sender === msg.sender && prev.type === 'text' && msg.type === 'text' && !msg.replyTo;
+        const sameNext = next && next.sender === msg.sender && next.type === 'text' && msg.type === 'text' && !next.replyTo;
+
+        // Exact 2px gap between consecutive same-sender messages, 10px gap on sender switch
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex flex-col ${msg.sender === 'sent' ? 'items-end' : 'items-start'} ${samePrev ? 'mt-[2px]' : 'mt-[10px]'} ${msg.isNew ? 'msg-appear' : ''}`;
+
+        // Exact Vertical 2.5px White Line Reply Preview Quote Bar
+        if (msg.replyTo) {
+          const isSent = msg.sender === 'sent';
+          const replyBlock = document.createElement('div');
+          replyBlock.className = `flex flex-col ${isSent ? 'items-end pr-0.5' : 'items-start pl-9'} mb-1 max-w-[82%]`;
+          replyBlock.innerHTML = `
+            <span class="text-[11.5px] text-white/75 mb-1 px-1">${escapeHTML(msg.replyTo.label)}</span>
+            <div class="flex items-stretch gap-2 ${isSent ? 'flex-row-reverse' : 'flex-row'}">
+              <div class="w-[2.5px] rounded-full bg-white/80 shrink-0 my-0.5"></div>
+              <div class="${msg.replyTo.isOriginalSent ? 'quoted-sent' : 'quoted-received'}">
+                ${escapeHTML(msg.replyTo.text)}
+              </div>
+            </div>
+          `;
+          wrapper.appendChild(replyBlock);
+        }
+
+        // Exact Portrait 212x356 Chat Reel Card + 28px PFP + Stacked Share/Cutout Buttons
+        if (msg.type === 'reel' && msg.reel) {
+          const row = document.createElement('div');
+          row.className = 'flex items-end gap-2 w-full';
+
+          const avatarSlot = document.createElement('div');
+          avatarSlot.className = 'w-[28px] h-[28px] rounded-full overflow-hidden shrink-0 ring-1 ring-white/25 mb-0.5';
+          avatarSlot.innerHTML = getChatAvatarHTML(chat);
+          row.appendChild(avatarSlot);
+
+          const cardGroup = document.createElement('div');
+          cardGroup.className = 'flex items-center gap-2.5';
+
+          const reelCard = document.createElement('div');
+          reelCard.className = 'reel-card';
+          reelCard.innerHTML = `
+            <canvas data-reel-theme="${escapeHTML(msg.reel.type)}"></canvas>
+            <!-- Top-left creator PFP + bold white @handle -->
+            <div class="absolute top-0 inset-x-0 p-2.5 bg-gradient-to-b from-black/55 to-transparent flex items-center gap-2 pointer-events-none">
+              <div class="w-6 h-6 rounded-full overflow-hidden ring-1 ring-white/85 shrink-0">${getCreatorAvatarHTML(msg.reel.type)}</div>
+              <span class="text-white font-bold text-[13px] drop-shadow-[0_1px_4px_rgba(0,0,0,0.85)] truncate">${escapeHTML(msg.reel.handle)}</span>
+            </div>
+            <!-- Center Frosted-Glass Play Triangle -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-12 h-12 rounded-full bg-black/25 backdrop-blur-[4px] border border-white/20 flex items-center justify-center shadow-lg">
+                <svg class="w-7 h-7 text-white/95 translate-x-0.5 drop-shadow" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.6-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/>
+                </svg>
+              </div>
+            </div>
+            <!-- Bottom-Left Translucent Rounded-Square Reels Clapperboard Icon -->
+            <div class="absolute bottom-2.5 left-2.5 w-7 h-7 rounded-lg bg-white/85 backdrop-blur-sm flex items-center justify-center shadow pointer-events-none">
+              <svg class="w-4 h-4 text-[#2b1040]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="4"/>
+                <path d="M3 8.5h18M9 3l2.5 5.5M14.5 3L17 8.5"/>
+                <path d="M10.2 12.2l4.2 2.5-4.2 2.5v-5z" fill="currentColor" stroke="none"/>
+              </svg>
+            </div>
+            ${msg.reaction ? `<div class="absolute bottom-2 right-2 bg-black/75 border border-white/20 rounded-full px-1.5 py-0.5 text-xs shadow reaction-pop">${msg.reaction}</div>` : ''}
+          `;
+          reelCard.addEventListener('click', () => openReelModal(msg.id));
+
+          // Outside Right: Stacked Paper-Plane Share & Scissors-with-Sparkle Cutout
+          const actionsCol = document.createElement('div');
+          actionsCol.className = 'flex flex-col gap-2.5';
+          actionsCol.innerHTML = `
+            <button class="reel-action-btn" title="Share / Forward" onclick="event.stopPropagation(); copyReelLink()">
+              <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+              </svg>
+            </button>
+            <button class="reel-action-btn" title="Cutout / Remix" onclick="event.stopPropagation(); showToast('Saved to Cutouts ✨')">
+              <svg class="w-[17px] h-[17px]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/>
+                <path d="M18.5 5.5L8.12 15.88M14.47 14.48L19.5 19.5M8.12 8.12L12 12"/>
+                <path d="M19 2v3M17.5 3.5h3" stroke-width="1.8"/>
+              </svg>
+            </button>
+          `;
+
+          cardGroup.appendChild(reelCard);
+          cardGroup.appendChild(actionsCol);
+          row.appendChild(cardGroup);
+          wrapper.appendChild(row);
+          chatContainer.appendChild(wrapper);
+          return;
+        }
+
+        // Shared photo message: compressed locally and retained with the 24-hour chat history
+        if (msg.type === 'image' && msg.imageDataUrl) {
+          const photoRow = document.createElement('div');
+          photoRow.className = `flex items-end gap-2 w-full ${msg.sender === 'sent' ? 'justify-end' : 'justify-start'}`;
+          if (msg.sender === 'received') {
+            const photoAvatar = document.createElement('div');
+            photoAvatar.className = 'w-[28px] h-[28px] rounded-full overflow-hidden shrink-0 ring-1 ring-white/25 mb-0.5';
+            photoAvatar.innerHTML = getChatAvatarHTML(chat);
+            photoRow.appendChild(photoAvatar);
+          }
+          const photoWrap = document.createElement('div');
+          photoWrap.className = `max-w-[78%] overflow-hidden rounded-2xl border border-white/15 shadow-lg ${msg.sender === 'sent' ? 'rounded-br-md' : 'rounded-bl-md'}`;
+          const photo = document.createElement('img');
+          photo.src = msg.imageDataUrl;
+          photo.alt = msg.caption || 'Shared photo';
+          photo.className = 'block max-h-[330px] max-w-full object-cover cursor-zoom-in';
+          photo.loading = 'lazy';
+          photo.addEventListener('click', () => {
+            const win = window.open();
+            if (win) { win.document.write('<title>Shared photo</title><img src="' + msg.imageDataUrl + '" style="max-width:100%;height:auto;display:block;margin:auto;background:#000">'); }
+          });
+          photoWrap.appendChild(photo);
+          if (msg.caption) {
+            const caption = document.createElement('div');
+            caption.className = 'px-3 py-2 text-sm text-white bg-black/35';
+            caption.textContent = msg.caption;
+            photoWrap.appendChild(caption);
+          }
+          photoRow.appendChild(photoWrap);
+          wrapper.appendChild(photoRow);
+          chatContainer.appendChild(wrapper);
+          return;
+        }
+
+        // Text Message Bubble
+        const row = document.createElement('div');
+        row.className = `flex items-end gap-2 w-full ${msg.sender === 'sent' ? 'justify-end' : 'justify-start'}`;
+
+        if (msg.sender === 'received') {
+          const avatarSlot = document.createElement('div');
+          avatarSlot.className = 'w-[28px] h-[28px] rounded-full overflow-hidden shrink-0 mb-0.5';
+          if (!sameNext) {
+            avatarSlot.className += ' ring-1 ring-white/25';
+            avatarSlot.innerHTML = getChatAvatarHTML(chat);
+          }
+          row.appendChild(avatarSlot);
+        }
+
+        const bubble = document.createElement('div');
+        let groupClass = '';
+        if (msg.sender === 'received') {
+          if (!samePrev && sameNext) groupClass = 'recv-first';
+          else if (samePrev && sameNext) groupClass = 'recv-middle';
+          else if (samePrev && !sameNext) groupClass = 'recv-last';
+          bubble.className = `bubble-received cursor-pointer ${groupClass}`;
+        } else {
+          if (!samePrev && sameNext) groupClass = 'sent-first';
+          else if (samePrev && sameNext) groupClass = 'sent-middle';
+          else if (samePrev && !sameNext) groupClass = 'sent-last';
+          bubble.className = `bubble-sent cursor-pointer ${groupClass}`;
+        }
+        bubble.textContent = msg.text;
+
+        if (msg.reaction) {
+          const reactEl = document.createElement('div');
+          reactEl.className = `absolute -bottom-2.5 ${msg.sender === 'sent' ? 'left-1.5' : 'right-1.5'} border border-white/20 rounded-full px-1.5 py-0.5 text-[11px] leading-none shadow-md reaction-pop`;
+          reactEl.style.background = 'var(--react-pill-bg)';
+          reactEl.textContent = msg.reaction;
+          bubble.appendChild(reactEl);
+          wrapper.classList.add('mb-2');
+        }
+
+        let tapTimer = null;
+        bubble.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (tapTimer) {
+            clearTimeout(tapTimer);
+            tapTimer = null;
+            hideEmojiPicker();
+            toggleQuickHeart(msg.id);
+          } else {
+            tapTimer = setTimeout(() => {
+              tapTimer = null;
+              openEmojiPicker(msg.id);
+            }, 215);
+          }
+        });
+
+        row.appendChild(bubble);
+        wrapper.appendChild(row);
+
+        if (idx === lastSentIdx && chat.lastSeenSentId === msg.id) {
+          const seenEl = document.createElement('div');
+          seenEl.className = 'text-[11px] text-white/60 pr-1 mt-1 select-none';
+          seenEl.textContent = 'Seen';
+          wrapper.appendChild(seenEl);
+        }
+
+        chatContainer.appendChild(wrapper);
+      });
+
+      if (state.isTypingMap[chat.id]) {
+        const typingRow = document.createElement('div');
+        typingRow.className = 'flex items-end gap-2 mt-[10px] msg-appear';
+        typingRow.innerHTML = `
+          <div class="w-[28px] h-[28px] rounded-full overflow-hidden shrink-0 ring-1 ring-white/25 mb-0.5">
+            ${getChatAvatarHTML(chat)}
+          </div>
+          <div class="bubble-received flex items-center gap-1.5 py-3 px-4">
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+          </div>
+        `;
+        chatContainer.appendChild(typingRow);
+      }
+
+      if (scrollToBottom) {
+        requestAnimationFrame(() => { chatContainer.scrollTop = chatContainer.scrollHeight; });
+      }
+    }
+
+    // =========================================================================
+    // 12. REACTIONS, REPLIES, AND FULLSCREEN REELS PLAYER CONTROLS
+    // =========================================================================
+    function toggleQuickHeart(msgId) {
+      const chat = getActiveChat();
+      const msg = chat?.messages.find(m => m.id === msgId);
+      if (!msg) return;
+      msg.reaction = msg.reaction === '❤️' ? null : '❤️';
+      saveAppState();
+      renderChat(false);
+    }
+
+    function openEmojiPicker(msgId) {
+      state.pickerMsgId = msgId;
+      document.getElementById('emojiPickerPopover').classList.remove('hidden');
+    }
+
+    function hideEmojiPicker() {
+      state.pickerMsgId = null;
+      document.getElementById('emojiPickerPopover').classList.add('hidden');
+    }
+
+    document.querySelectorAll('.emoji-pick-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const chat = getActiveChat();
+        const msg = chat?.messages.find(m => m.id === state.pickerMsgId);
+        if (msg) {
+          const emoji = btn.dataset.emoji;
+          msg.reaction = msg.reaction === emoji ? null : emoji;
+          saveAppState();
+          renderChat(false);
+        }
+        hideEmojiPicker();
+      });
+    });
+
+    document.getElementById('replyFromPickerBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const chat = getActiveChat();
+      const msg = chat?.messages.find(m => m.id === state.pickerMsgId);
+      hideEmojiPicker();
+      if (msg) startReplyTo(msg);
+    });
+
+    function startReplyTo(msg) {
+      const chat = getActiveChat();
+      state.replyingTo = msg;
+      document.getElementById('replyBarTitle').textContent = msg.sender === 'sent' ? 'Replying to yourself' : `Replying to ${chat.name}`;
+      document.getElementById('replyBarText').textContent = msg.type === 'reel' ? `Reel by @${msg.reel.handle}` : msg.text;
+      document.getElementById('replyBar').classList.remove('hidden');
+      document.getElementById('messageInput').focus();
+    }
+
+    function clearReply() {
+      state.replyingTo = null;
+      document.getElementById('replyBar').classList.add('hidden');
+    }
+    document.getElementById('cancelReplyBtn').addEventListener('click', clearReply);
+
+    // Fullscreen Reels Player Logic
+    const reelModal = document.getElementById('reelModal');
+    const reelModalCanvas = document.getElementById('reelModalCanvas');
+    const reelLikeIcon = document.getElementById('reelLikeIcon');
+    const reelBigHeart = document.getElementById('reelBigHeart');
+    const reelSpeakerFlash = document.getElementById('reelSpeakerFlash');
+
+    function openReelModal(msgId) {
+      const chat = getActiveChat();
+      const msg = chat?.messages.find(m => m.id === msgId);
+      if (!msg || !msg.reel) return;
+      state.activeReelId = msgId;
+      state.reelStartTime = performance.now();
+      state.reelMuted = true;
+      syncReelAudioUI();
+
+      const meta = REEL_CATALOG[msg.reel.type] || REEL_CATALOG.sugar_glider;
+      document.getElementById('reelModalAvatar').innerHTML = getCreatorAvatarHTML(msg.reel.type);
+      document.getElementById('reelDiscArt').innerHTML = getCreatorAvatarHTML(msg.reel.type);
+      document.getElementById('reelModalHandle').textContent = msg.reel.handle;
+      document.getElementById('reelModalCaption').textContent = msg.reel.caption || meta.defaultCaption;
+      document.getElementById('reelModalMarquee').innerHTML = `
+        <span class="pr-6">${escapeHTML(meta.audio)}</span>
+        <span class="pr-6">${escapeHTML(meta.audio)}</span>
+      `;
+
+      const followBtn = document.getElementById('reelFollowBtn');
+      followBtn.textContent = msg.reel.isFollowing ? 'Following' : 'Follow';
+
+      const baseLikes = msg.reel.likesNum || 48200;
+      document.getElementById('reelLikeCount').textContent = formatLikes(baseLikes + (msg.reel.isLiked ? 1 : 0));
+      updateReelLikeUI(msg.reel.isLiked);
+
+      document.getElementById('reelQuickReplyInput').value = '';
+      reelModal.classList.remove('hidden');
+    }
+
+    function closeReelModal() {
+      stopLofiAudio(true);
+      reelModal.classList.add('hidden');
+      state.activeReelId = null;
+    }
+
+    function updateReelLikeUI(isLiked) {
+      reelLikeIcon.setAttribute('fill', isLiked ? '#ff2d6f' : 'none');
+      reelLikeIcon.setAttribute('stroke', isLiked ? '#ff2d6f' : 'currentColor');
+    }
+
+    function syncReelAudioUI() {
+      document.getElementById('reelAudioOnIcon').classList.toggle('hidden', state.reelMuted);
+      document.getElementById('reelAudioOffIcon').classList.toggle('hidden', !state.reelMuted);
+    }
+
+    function toggleReelMute(showFlash = true) {
+      state.reelMuted = !state.reelMuted;
+      syncReelAudioUI();
+      if (!state.reelMuted) startLofiAudio();
+      else stopLofiAudio(false);
+
+      if (showFlash) {
+        document.getElementById('flashAudioOn').classList.toggle('hidden', state.reelMuted);
+        document.getElementById('flashAudioOff').classList.toggle('hidden', !state.reelMuted);
+        reelSpeakerFlash.classList.remove('hidden');
+        setTimeout(() => reelSpeakerFlash.classList.add('hidden'), 900);
+      }
+    }
+
+    function triggerReelLike(forceLike = false) {
+      const chat = getActiveChat();
+      const msg = chat?.messages.find(m => m.id === state.activeReelId);
+      if (!msg || !msg.reel) return;
+      msg.reel.isLiked = forceLike ? true : !msg.reel.isLiked;
+      msg.reaction = msg.reel.isLiked ? '❤️' : null;
+      const baseLikes = msg.reel.likesNum || 48200;
+      document.getElementById('reelLikeCount').textContent = formatLikes(baseLikes + (msg.reel.isLiked ? 1 : 0));
+      updateReelLikeUI(msg.reel.isLiked);
+      saveAppState();
+      renderChat(false);
+      if (msg.reel.isLiked) {
+        reelBigHeart.classList.remove('hidden');
+        setTimeout(() => reelBigHeart.classList.add('hidden'), 820);
+      }
+    }
+
+    document.getElementById('reelLikeBtn').addEventListener('click', () => triggerReelLike(false));
+    document.getElementById('reelAudioBtn').addEventListener('click', () => toggleReelMute(true));
+    document.getElementById('closeReelBtn').addEventListener('click', closeReelModal);
+
+    document.getElementById('reelFollowBtn').addEventListener('click', () => {
+      const chat = getActiveChat();
+      const msg = chat?.messages.find(m => m.id === state.activeReelId);
+      if (!msg || !msg.reel) return;
+      msg.reel.isFollowing = !msg.reel.isFollowing;
+      document.getElementById('reelFollowBtn').textContent = msg.reel.isFollowing ? 'Following' : 'Follow';
+      showToast(msg.reel.isFollowing ? `Following @${msg.reel.handle}` : `Unfollowed @${msg.reel.handle}`);
+      saveAppState();
+    });
+
+    document.getElementById('reelCommentBtn').addEventListener('click', () => {
+      document.getElementById('reelQuickReplyInput').focus();
+    });
+
+    // Single-tap toggles mute/unmute; Double-tap triggers spring heart burst
+    let reelCanvasTapTimer = null;
+    reelModalCanvas.addEventListener('click', () => {
+      if (reelCanvasTapTimer) {
+        clearTimeout(reelCanvasTapTimer);
+        reelCanvasTapTimer = null;
+        triggerReelLike(true);
+      } else {
+        reelCanvasTapTimer = setTimeout(() => {
+          reelCanvasTapTimer = null;
+          toggleReelMute(true);
+        }, 235);
+      }
+    });
+
+    // Quick "Reply to Reel..." sends quoted reply directly into the DM chat
+    document.getElementById('reelQuickReplyForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const input = document.getElementById('reelQuickReplyInput');
+      const replyText = input.value.trim();
+      const chat = getActiveChat();
+      const msg = chat?.messages.find(m => m.id === state.activeReelId);
+      if (!replyText || !msg) return;
+      closeReelModal();
+      state.replyingTo = msg;
+      sendUserMessage(replyText);
+    });
+
+    // =========================================================================
+    // 13. ZERO-FAILURE AI ENGINE (GEMINI 2.5 FLASH / CANVAS + BUILT-IN ENGINE)
+    // =========================================================================
+    const runtimeApiKey = ""; // Auto-injected in Canvas preview
+
+    async function fetchWithRetry(url, options, maxRetries = 2) {
+      let delay = 900;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch(url, options);
+          if (response.ok) return await response.json();
+          if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2;
+            continue;
+          }
+          throw new Error('API ' + response.status);
+        } catch (err) {
+          if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, delay));
+            delay *= 2;
+            continue;
+          }
+          throw err;
+        }
+      }
+    }
+
+    function pickDistinctReelsForPersona(personaKey, count) {
+      if (count <= 0) return [];
+      const prefs = [...(PERSONA_META[personaKey]?.preferredReels || VALID_REEL_TYPES)];
+      const shuffled = prefs.sort(() => Math.random() - 0.5);
+      const time = getIndiaTimeContext();
+      const captionIdeas = {
+        sugar_glider: ['tiny paws, maximum personality 🥹💛 #cutereels', 'proof that the smallest things make the biggest days ✨'],
+        sleepy_paws: [time.hour >= 20 || time.hour < 5 ? 'your sign to slow down tonight 🌙 #cozy' : 'a tiny serotonin break for your feed 🐾'],
+        midnight_drives: ['POV: the city finally gets quiet 🌃 #nightdrive', 'somewhere between the lights and the playlist 🚗'],
+        rainy_lofts: ['a little rain, a softer mood 🌧️ #slowmoments', 'save this feeling for a busy day 💜'],
+        bunny_cloud: ['the daily dose of ridiculously cute 🐰', 'send this tiny cloud to someone you like 🍓'],
+        relatable_bangla: ['plan chilo 10tay ghumabo, ekhon dekho 💀 #banglamemes', 'Bangali sleep schedule is a social experiment 😭'],
+        sunset_vibes: ['take a breath. the sky is doing its thing 🌅', 'a small reminder that today had beautiful moments too ✨']
+      };
+      return prefs.slice(0, count).map(type => {
+        const ideas = captionIdeas[type] || [REEL_CATALOG[type].defaultCaption];
+        return { type, caption: ideas[Math.floor(Math.random() * ideas.length)] };
+      });
+    }
+
+    function getSmartBuiltInReply(chat, userText, mood, allowedReels, isAutoContinue = false) {
+      const p = chat.persona;
+      const lower = (userText || '').toLowerCase();
+      const indiaTime = getIndiaTimeContext();
+      let messages = ['Mhmm'];
+
+      if (isAutoContinue) {
+        const isLate = indiaTime.hour >= 21 || indiaTime.hour < 5;
+        if (p === 'romantic') {
+          messages = isLate ? (mood === 'Sleepy' ? ['ghumiye poro jaan, kal kotha bolbo 💕'] : ['Ekhono jege acho?', 'ektu rest nao shona 💗']) : indiaTime.hour < 12 ? ['Good morning babyyy ☀️', 'uthle amake bolo'] : ['ki korcho ekhon?', 'ami ekhanei achi 💕'];
+        } else if (p === 'bestie') {
+          messages = isLate ? ['bhai eto raat obdi ki korchis 💀', 'kalke abar complain korbi sleepy bole'] : ['oii bhai, ki scene?', 'break niyechis toh?'];
+        } else if (p === 'flirty') {
+          messages = isLate ? ['late night scrolling again? ✨', 'go get some rest pretty'] : ['hellooo, what are you up to? ✨', 'send me your current vibe'];
+        } else if (p === 'listener') {
+          messages = isLate ? ['no pressure to reply, just take care 🌙', 'hope tonight feels a little lighter'] : ['how is your day going now?', 'I am here if you want to talk 🌿'];
+        } else {
+          messages = isLate ? ['wrap up the sprint and rest 🌙', 'tomorrow-you will appreciate it'] : ['status check — still locked in?', 'take a tiny screen break 💻'];
+        }
+      } else if (allowedReels === 2) {
+        messages = p === 'romantic' ? ['Oii dekh egulo 🥹', 'Duto pathalam'] : ['watch these two rn 💀'];
+      } else if (allowedReels === 1) {
+        messages = p === 'romantic' ? ['Dekh eta koto cute 🥹'] : ['bro look at this reel 😭'];
+      } else if (contextualReplyPool(chat, userText, mood, indiaTime)) {
+        messages = contextualReplyPool(chat, userText, mood, indiaTime);
+      } else if (p === 'romantic') {
+        if (/\b(khey|eat|khawa|dinner|lunch)\b/.test(lower)) messages = ['Haa kheyechi', 'Tui kheycho?'];
+        else if (/\b(ki kor|doing|wyd)\b/.test(lower)) messages = ['Kichu na', 'Tomar kotha bhabchi', 'Ebr ghumo'];
+        else if (mood === 'Romantic') messages = ['Alaaaaaaaabuuuu theee mosst', 'Pagol amr', 'Ghumo ebr 💕'];
+        else if (mood === 'Sleepy') messages = ['Yess', 'Ja abr ghumo', 'Mhmm'];
+        else if (mood === 'Stressed') messages = ['Ki hoyeche bolo?', 'Aito aikhane e achi', 'Tension korish na 💕'];
+        else messages = ['Aito aikhane e', 'Haa bolo', 'Ghumobi ha ki na?'];
+      } else if (p === 'bestie') {
+        if (mood === 'Playful' || mood === 'Excited') messages = ['lmaooo real', 'bhai aaj plan korbi? 🏍️'];
+        else if (mood === 'Stressed') messages = ['chill kor bhai', 'chai khete chol sab thik hoye jabe'];
+        else messages = ['accha', 'ki scene bol'];
+      } else if (p === 'flirty') {
+        if (mood === 'Flirty' || mood === 'Romantic') messages = ['stoppp you’re making me smile', 'smooth ngl ✨'];
+        else messages = ['wait really??', 'literally obsessed with this vibe'];
+      } else if (p === 'listener') {
+        if (mood === 'Stressed') messages = ['that sounds really heavy', 'take a breath, I’m listening 🌙'];
+        else messages = ['I feel that', 'what’s been on your mind tonight?'];
+      } else {
+        if (mood === 'Stressed') messages = ['one bug at a time', 'take 5 mins then lock back in'];
+        else messages = ['solid plan', 'let’s ship it tonight 💻'];
+      }
+
+      const recentReplies = chat.messages.filter(m => m.sender === 'received' && m.type === 'text').slice(-8).map(m => (m.text || '').toLowerCase());
+      if (messages.length) {
+        const fresh = messages.filter(line => !recentReplies.includes(String(line).toLowerCase()));
+        if (fresh.length) messages = fresh;
+        else if (p === 'romantic') messages = ['Bolo na, shunchi 💗', 'Ami ekhanei achi'];
+        else if (p === 'bestie') messages = ['tor kotha shuni agey 😭', 'accha then, next ki?'];
+        else if (p === 'listener') messages = ['I am following. tell me more 🌙'];
+        else messages = ['wait, go on ✨', 'what happened next?'];
+      }
+      return { messages, reels: pickDistinctReelsForPersona(p, allowedReels) };
+    }
+
+    async function generateAIReply(chat, userText, mood, allowedReels, isAutoContinue = false) {
+      if (state.offlineOnly) {
+        return getSmartBuiltInReply(chat, userText, mood, allowedReels, isAutoContinue);
+      }
+      // Live replies require the app to be served by the included backend (not opened as file://).
+
+      const personaInfo = PERSONA_META[chat.persona] || PERSONA_META.romantic;
+      const recentContext = chat.messages
+        .filter(m => m.sender === 'sent' || m.sender === 'received')
+        .slice(-20)
+        .map(m => `[${formatISTTimestamp(m.createdAt)}] ${m.sender === 'sent' ? 'User' : chat.name}: ${m.type === 'reel' ? `[Shared an animated Reel: ${m.reel.caption || m.reel.type}]` : m.type === 'image' ? '[Shared a photo]' : m.text}`)
+        .join('\n');
+
+      // Refresh the clock immediately before every model request. The device timezone is
+      // deliberately ignored; all conversational time is calculated in Asia/Kolkata.
+      const indiaTime = getIndiaTimeContext();
+      const latestMessage = chat.messages[chat.messages.length - 1];
+      const latestMessageAgeMinutes = latestMessage?.createdAt
+        ? Math.max(0, Math.round((Date.now() - latestMessage.createdAt) / 60000))
+        : null;
+      const recentReplyLines = chat.messages
+        .filter(m => m.sender === 'received' && m.type === 'text')
+        .slice(-10).map(m => String(m.text || '').trim()).filter(Boolean);
+      const turnInstruction = isAutoContinue
+        ? `This is an optional follow-up after a pause. Only send a message if it would genuinely make sense for this character and this conversation. Never manufacture urgency, guilt the user, or send a generic check-in just to fill silence. The last message was approximately ${latestMessageAgeMinutes ?? 'an unknown number of'} minutes ago.`
+        : `The user's latest message is: "${userText}". Respond to its actual meaning first. Answer any direct question clearly before asking anything back. Do not ignore details, change the subject, or greet the user again unless their message calls for it.`;
+
+      const prompt = `LIVE CLOCK — AUTHORITATIVE FOR THIS CHAT: ${indiaTime.dateTime}. Time zone: Asia/Kolkata (Indian Standard Time, UTC+05:30). Current local hour: ${indiaTime.hour}. Day-part: ${indiaTime.dayPart}. Today is the weekday/date shown above. Re-read this clock on every turn; do not guess the time from the conversation or use UTC/device-local time.\n\nSITUATION-AWARE CONVERSATION RULES:
+- Treat the clock as real context, not as a script. Let the time subtly influence wording, energy and plausible routine references when relevant. Do not mention the time in every reply and do not force a morning/evening greeting into an ongoing conversation.
+- Consider the weekday, day-part, recent conversation, user's stated plans, mood and how long it has been since the last message. If the user said they were in class, travelling, working, eating, upset or going to sleep, carry that context forward naturally.
+- Do not assume what the user is doing, where they are, whether they have eaten, or whether they are asleep. Ask naturally if that information matters. Never claim to observe the user's real-world surroundings.
+- Match the character's personality and the user's language (English, Bengali or Banglish). Use natural DM-length messages, varied phrasing and realistic emotional responses.
+- Avoid canned replies, repeated greetings, repeated questions, generic filler and copy-pasted phrases. Do not repeat any of these recent replies unless the user explicitly asks: ${JSON.stringify(recentReplyLines)}
+- Write a fresh reply that addresses the specific latest message. Do not use a stock greeting/check-in as a substitute for answering. If the latest message is unclear, ask one precise clarifying question.
+- Usually send one natural DM message (at most two short consecutive messages). Do not generate a list of alternative replies.
+- Use the full conversation context to understand references such as "that", "there", "tomorrow", "later" and earlier plans. Be consistent with what this contact has already said.
+\nRECENT CONVERSATION (oldest to newest):\n${recentContext}\n\n${turnInstruction}\nDetected user mood (a hint, not a fact): ${mood}. Stay attentive to the emotional situation; do not over-diagnose or exaggerate it. Keep this persona's distinct voice. Reels, if allowed, must have fresh captions that fit the current conversation rather than unrelated stock text.\nALLOWED_REELS_THIS_TURN: ${allowedReels}\nReturn only the requested JSON structure. The messages must be genuinely relevant to the latest message and current situation. Obey ALLOWED_REELS_THIS_TURN (0, 1, or 2 reels).`;
+
+      const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: { parts: [{ text: personaInfo.systemPrompt }] },
+        generationConfig: {
+          temperature: 1.0,
+          topP: 0.94,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              messages: { type: "ARRAY", items: { type: "STRING" } },
+              reels: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    type: { type: "STRING", enum: VALID_REEL_TYPES },
+                    caption: { type: "STRING" }
+                  },
+                  required: ["type", "caption"]
+                }
+              }
+            },
+            required: ["messages", "reels"]
+          }
+        }
+      };
+
+      // Send conversation context to the same-origin secure OpenAI backend.
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, systemPrompt: personaInfo.systemPrompt })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Backend ${response.status}`);
+        const rawText = result.output_text || result.text || '';
+        if (!rawText) throw new Error('The GPT backend returned an empty reply.');
+        const parsed = JSON.parse(rawText);
+        if (!Array.isArray(parsed.messages) || parsed.messages.length === 0) throw new Error('GPT returned an invalid message structure.');
+        let reels = Array.isArray(parsed.reels) ? parsed.reels.filter(r => r && VALID_REEL_TYPES.includes(r.type)).slice(0, allowedReels) : [];
+        if (reels.length < allowedReels) reels = reels.concat(pickDistinctReelsForPersona(chat.persona, allowedReels - reels.length));
+        const normalizedRecent = new Set(recentReplyLines.map(line => line.toLowerCase().replace(/\s+/g, ' ').trim()));
+        const freshMessages = parsed.messages.map(line => String(line).trim()).filter(line => line && !normalizedRecent.has(line.toLowerCase().replace(/\s+/g, ' ').trim()));
+        if (!freshMessages.length) throw new Error('GPT repeated a recent reply. Please send another message.');
+        return { messages: freshMessages.slice(0, 2), reels };
+      } catch (e) {
+        const detail = e && e.message ? e.message : 'Unknown backend error';
+        return { messages: [], reels: [], error: `OpenAI GPT connection failed (${detail}). Make sure the app is deployed with the included backend and OPENAI_API_KEY is configured.` };
+      }
+    }
+
+    const busyChats = {};
+
+    async function runAIResponse(chatId, userText, { forceReel = false, isAutoContinue = false } = {}) {
+      if (busyChats[chatId]) return;
+      const chat = state.chats.find(c => c.id === chatId);
+      if (!chat) return;
+
+      busyChats[chatId] = true;
+      const mood = isAutoContinue ? (chat.mood || 'Chill') : detectUserMood(userText, chat.mood);
+      chat.mood = mood;
+      const allowedReels = isAutoContinue ? 0 : evaluateReelAllowance(chat, userText, mood, forceReel);
+
+      if (!isAutoContinue) {
+        await new Promise(r => setTimeout(r, 380));
+        const latestSent = [...chat.messages].reverse().find(m => m.sender === 'sent');
+        if (latestSent) {
+          chat.lastSeenSentId = latestSent.id;
+          if (state.activeChatId === chatId) renderChat(false);
+        }
+      }
+
+      await new Promise(r => setTimeout(r, 300));
+      state.isTypingMap[chatId] = true;
+      if (state.activeChatId === chatId) { updateChatHeader(); renderChat(true); }
+
+      const aiData = await generateAIReply(chat, userText, mood, allowedReels, isAutoContinue);
+      if (aiData.error) {
+        state.isTypingMap[chatId] = false;
+        busyChats[chatId] = false;
+        if (state.activeChatId === chatId) { updateChatHeader(); renderChat(false); }
+        showToast('Could not reach GPT. Check the app deployment and OpenAI API settings.');
+        return;
+      }
+
+      for (let i = 0; i < aiData.messages.length; i++) {
+        const text = String(aiData.messages[i]).trim();
+        if (!text) continue;
+
+        state.isTypingMap[chatId] = true;
+        if (state.activeChatId === chatId) renderChat(true);
+        await new Promise(r => setTimeout(r, 520 + Math.min(text.length * 20, 620)));
+
+        state.isTypingMap[chatId] = false;
+        chat.messages.push({
+          id: 'ai_' + Date.now() + '_' + i,
+          sender: 'received',
+          type: 'text',
+          text,
+          reaction: null,
+          createdAt: Date.now(),
+          isNew: true
+        });
+
+        if (state.activeScreen !== 'chat' || state.activeChatId !== chatId) {
+          chat.unread = (chat.unread || 0) + 1;
+        }
+        saveAppState();
+        if (state.activeChatId === chatId) { updateChatHeader(); renderChat(true); }
+        renderInbox();
+
+        if (i < aiData.messages.length - 1 || aiData.reels.length > 0) {
+          await new Promise(r => setTimeout(r, 280));
+        }
+      }
+
+      for (let rIdx = 0; rIdx < aiData.reels.length; rIdx++) {
+        const item = aiData.reels[rIdx];
+        const meta = REEL_CATALOG[item.type] || REEL_CATALOG.sugar_glider;
+
+        state.isTypingMap[chatId] = true;
+        if (state.activeChatId === chatId) renderChat(true);
+        await new Promise(r => setTimeout(r, rIdx === 0 ? 800 : 1100));
+
+        state.isTypingMap[chatId] = false;
+        chat.messages.push({
+          id: 'reel_' + Date.now() + '_' + rIdx,
+          sender: 'received',
+          type: 'reel',
+          reel: {
+            type: item.type,
+            handle: meta.handle,
+            caption: item.caption || meta.defaultCaption,
+            likesNum: Math.floor(Math.random() * 82000 + 12000),
+            isLiked: false,
+            isFollowing: false
+          },
+          reaction: null,
+          createdAt: Date.now(),
+          isNew: true
+        });
+
+        if (state.activeScreen !== 'chat' || state.activeChatId !== chatId) {
+          chat.unread = (chat.unread || 0) + 1;
+        }
+        saveAppState();
+        if (state.activeChatId === chatId) { updateChatHeader(); renderChat(true); }
+        renderInbox();
+      }
+
+      busyChats[chatId] = false;
+      updateCadenceBadge();
+      if (state.activeChatId === chatId && !isAutoContinue) resetInactivityTimer();
+    }
+
+    // Inactivity Auto-Continue Timer (~28s)
+    let inactivityTimer = null;
+    function resetInactivityTimer() {
+      clearTimeout(inactivityTimer);
+      if (!state.autoContinueEnabled) return;
+      inactivityTimer = setTimeout(() => {
+        if (!state.autoContinueEnabled || state.activeScreen !== 'chat') return;
+        const chat = getActiveChat();
+        if (!chat || busyChats[chat.id]) return;
+        runAIResponse(chat.id, '', { isAutoContinue: true });
+      }, 28000);
+    }
+
+    // Background Push Notification DMs from Other Contacts
+    let pushBannerTimer = null;
+    function showPushBanner(chat, text) {
+      const banner = document.getElementById('pushBanner');
+      document.getElementById('pushBannerAvatar').innerHTML = getChatAvatarHTML(chat);
+      document.getElementById('pushBannerName').textContent = chat.name;
+      document.getElementById('pushBannerText').textContent = text;
+      banner.dataset.chatId = chat.id;
+      banner.classList.remove('hidden');
+      clearTimeout(pushBannerTimer);
+      pushBannerTimer = setTimeout(() => banner.classList.add('hidden'), 4800);
+    }
+
+    document.getElementById('pushBanner').addEventListener('click', () => {
+      const banner = document.getElementById('pushBanner');
+      const targetId = banner.dataset.chatId;
+      banner.classList.add('hidden');
+      if (targetId) openChat(targetId);
+    });
+
+    function startBackgroundDmLoop() {
+      setInterval(() => {
+        if (!state.autoContinueEnabled) return;
+        const candidates = state.chats.filter(c => c.id !== state.activeChatId && !busyChats[c.id]);
+        if (candidates.length === 0) return;
+        // Background contacts must use the same live OpenAI engine as the open chat.
+        // Never inject repetitive preset messages when there is no working API key.
+        if (state.offlineOnly) return;
+        const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+        runAIResponse(chosen.id, '', { isAutoContinue: true });
+      }, 62000);
+    }
+
+    // =========================================================================
+    // 14. SETTINGS SHEET, DEPLOY AI CONFIG, PFP SHEET & MODALS
+    // =========================================================================
+    const settingsBackdrop = document.getElementById('settingsSheetBackdrop');
+
+    function openSettingsSheet() {
+      const chat = getActiveChat();
+      if (!chat) return;
+      document.getElementById('quickMenu').classList.add('hidden');
+
+      document.getElementById('settingsAvatar').innerHTML = getChatAvatarHTML(chat);
+      document.getElementById('settingsName').textContent = chat.name;
+      document.getElementById('settingsHandle').textContent = chat.handle;
+      document.getElementById('settingsPersonaTag').textContent = PERSONA_META[chat.persona]?.label || 'AI Chat';
+      document.getElementById('settingsMoodTag').textContent = `Mood: ${chat.mood || 'Chill'}`;
+
+      const savedCount = chat.messages.filter(m => m.sender === 'sent' || m.sender === 'received').length;
+      document.getElementById('savedCountLabel').textContent = `${savedCount} messages saved`;
+
+      // Sync Deploy AI Settings
+      document.getElementById('deployApiKeyInput').value = ''; 
+      document.getElementById('offlineOnlyCheck').checked = !!state.offlineOnly;
+      syncAiModeBadge();
+
+      const grid = document.getElementById('themePickerGrid');
+      grid.innerHTML = '';
+      Object.entries(THEME_META).forEach(([key, meta]) => {
+        const isSelected = chat.theme === key;
+        const btn = document.createElement('button');
+        btn.className = `flex flex-col items-center gap-1.5 p-1.5 rounded-2xl transition ${isSelected ? 'bg-white/15 ring-1 ring-white/40' : 'hover:bg-white/5'}`;
+        btn.innerHTML = `
+          <span class="w-9 h-9 rounded-full shadow-md border border-white/25" style="background: ${meta.swatch}"></span>
+          <span class="text-[10.5px] font-medium text-white/90">${meta.label}</span>
+        `;
+        btn.addEventListener('click', () => {
+          chat.theme = key;
+          document.getElementById('chatScreen').setAttribute('data-theme', key);
+          renderThemeWallpaper(key);
+          saveAppState();
+          openSettingsSheet();
+          showToast(`${meta.label} theme applied`);
+        });
+        grid.appendChild(btn);
+      });
+
+      syncAutoContinueUI();
+      settingsBackdrop.classList.remove('hidden');
+    }
+
+    function syncAiModeBadge() {
+      const badge = document.getElementById('aiModeBadge');
+      if (state.offlineOnly) {
+        badge.textContent = 'Built-In Engine';
+        badge.className = 'text-[10.5px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium';
+      } else {
+        badge.textContent = 'OpenAI GPT';
+        badge.className = 'text-[10.5px] px-2 py-0.5 rounded-full bg-blue-500/25 text-blue-300 font-medium';
+      }
+    }
+
+    function syncAutoContinueUI() {
+      const toggle = document.getElementById('autoContinueToggle');
+      const knob = document.getElementById('autoContinueKnob');
+      if (state.autoContinueEnabled) {
+        toggle.classList.remove('bg-white/20');
+        toggle.classList.add('bg-[#0095f6]');
+        knob.classList.add('translate-x-5');
+      } else {
+        toggle.classList.remove('bg-[#0095f6]');
+        toggle.classList.add('bg-white/20');
+        knob.classList.remove('translate-x-5');
+      }
+    }
+
+    document.getElementById('saveApiKeyBtn').addEventListener('click', () => showToast('Configure OPENAI_API_KEY in your hosting environment, not in this page.'));
+    document.getElementById('clearApiKeyBtn').addEventListener('click', () => {});
+
+    document.getElementById('offlineOnlyCheck').addEventListener('change', (e) => {
+      state.offlineOnly = e.target.checked;
+      saveAppState();
+      syncAiModeBadge();
+      showToast(state.offlineOnly ? 'Offline sample replies enabled (limited)' : 'OpenAI GPT backend will be used when deployed');
+    });
+
+    document.getElementById('autoContinueToggle').addEventListener('click', () => {
+      state.autoContinueEnabled = !state.autoContinueEnabled;
+      syncAutoContinueUI();
+      saveAppState();
+      if (state.autoContinueEnabled) resetInactivityTimer();
+      else clearTimeout(inactivityTimer);
+      showToast(state.autoContinueEnabled ? 'Auto-Continue AI enabled' : 'Auto-Continue AI paused');
+    });
+
+    document.getElementById('openChatSettingsBtn').addEventListener('click', openSettingsSheet);
+    document.getElementById('openThemeMenuBtn').addEventListener('click', openSettingsSheet);
+    document.getElementById('closeSettingsBtn').addEventListener('click', () => settingsBackdrop.classList.add('hidden'));
+    settingsBackdrop.addEventListener('click', (e) => { if (e.target === settingsBackdrop) settingsBackdrop.classList.add('hidden'); });
+    document.getElementById('settingsAvatar').addEventListener('click', () => { settingsBackdrop.classList.add('hidden'); openPfpSheet(); });
+    document.getElementById('settingsChangePfpBtn').addEventListener('click', () => { settingsBackdrop.classList.add('hidden'); openPfpSheet(); });
+
+    document.getElementById('resetChatHistoryBtn').addEventListener('click', () => {
+      const chat = getActiveChat();
+      if (!chat) return;
+      if (chat.id === 'darlin') {
+        chat.messages = createDarlinStarterMessages();
+        chat.lastSeenSentId = 'd33';
+      } else {
+        chat.messages = chat.messages.filter(m => m.isStarter);
+        chat.lastSeenSentId = null;
+      }
+      chat.cadence = makeCadence();
+      saveAppState();
+      settingsBackdrop.classList.add('hidden');
+      renderChat(true);
+      renderInbox();
+      updateCadenceBadge();
+      showToast('24h history reset for ' + chat.name);
+    });
+
+    // Changeable Instagram PFP Bottom Sheet
+    const pfpSheetBackdrop = document.getElementById('pfpSheetBackdrop');
+    const pfpSheetPreview = document.getElementById('pfpSheetPreview');
+    const pfpUrlBox = document.getElementById('pfpUrlBox');
+    const pfpUrlInput = document.getElementById('pfpUrlInput');
+    const pfpUrlStatus = document.getElementById('pfpUrlStatus');
+    const avatarUpload = document.getElementById('avatarUpload');
+
+    function openPfpSheet() {
+      const chat = getActiveChat();
+      if (!chat) return;
+      document.getElementById('quickMenu').classList.add('hidden');
+      pfpSheetPreview.innerHTML = getChatAvatarHTML(chat);
+      document.getElementById('pfpTargetLabel').textContent = `for ${chat.name}`;
+      pfpUrlBox.classList.add('hidden');
+      pfpUrlInput.value = chat.avatarDataUrl && chat.avatarDataUrl.startsWith('http') ? chat.avatarDataUrl : '';
+      pfpUrlStatus.textContent = 'Paste a direct image link for live preview';
+      pfpUrlStatus.className = 'text-[11.5px] text-white/65 truncate';
+      pfpSheetBackdrop.classList.remove('hidden');
+    }
+
+    function applyContactPfp(src, toastMsg) {
+      const chat = getActiveChat();
+      if (!chat) return;
+      chat.avatarDataUrl = src || null;
+      saveAppState();
+      updateChatHeader();
+      renderChat(false);
+      renderInbox();
+      pfpSheetBackdrop.classList.add('hidden');
+      if (toastMsg) showToast(toastMsg);
+    }
+
+    function compressImageFile(file, maxSize = 256) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Read error'));
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onerror = () => reject(new Error('Image error'));
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = maxSize;
+            canvas.height = maxSize;
+            const ctx = canvas.getContext('2d');
+            const minSide = Math.min(img.width, img.height);
+            ctx.drawImage(img, (img.width - minSide) / 2, (img.height - minSide) / 2, minSide, minSide, 0, 0, maxSize, maxSize);
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    document.getElementById('headerAvatarBtn').addEventListener('click', openPfpSheet);
+    document.getElementById('changePhotoMenuBtn').addEventListener('click', openPfpSheet);
+    document.getElementById('pfpCancelBtn').addEventListener('click', () => pfpSheetBackdrop.classList.add('hidden'));
+    pfpSheetBackdrop.addEventListener('click', (e) => { if (e.target === pfpSheetBackdrop) pfpSheetBackdrop.classList.add('hidden'); });
+    document.getElementById('pfpGalleryBtn').addEventListener('click', () => { avatarUpload.value = ''; avatarUpload.click(); });
+    document.getElementById('pfpToggleUrlBtn').addEventListener('click', () => {
+      pfpUrlBox.classList.toggle('hidden');
+      if (!pfpUrlBox.classList.contains('hidden')) pfpUrlInput.focus();
+    });
+
+    pfpUrlInput.addEventListener('input', () => {
+      const url = pfpUrlInput.value.trim();
+      const chat = getActiveChat();
+      if (!url) {
+        pfpSheetPreview.innerHTML = getChatAvatarHTML(chat);
+        pfpUrlStatus.textContent = 'Paste a direct image link for live preview';
+        pfpUrlStatus.className = 'text-[11.5px] text-white/65 truncate';
+        return;
+      }
+      const probe = new Image();
+      probe.onload = () => {
+        pfpSheetPreview.innerHTML = `<img src="${escapeHTML(url)}" class="w-full h-full object-cover"/>`;
+        pfpUrlStatus.textContent = 'Preview loaded ✓';
+        pfpUrlStatus.className = 'text-[11.5px] text-emerald-300 truncate';
+      };
+      probe.onerror = () => {
+        pfpUrlStatus.textContent = 'Could not load image URL';
+        pfpUrlStatus.className = 'text-[11.5px] text-pink-300 truncate';
+      };
+      probe.src = url;
+    });
+
+    document.getElementById('pfpApplyUrlBtn').addEventListener('click', () => {
+      const url = pfpUrlInput.value.trim();
+      if (!url) return showToast('Paste an image URL first');
+      applyContactPfp(url, 'Profile photo updated!');
+    });
+    document.getElementById('pfpResetBtn').addEventListener('click', () => applyContactPfp(null, 'Restored default photo'));
+
+    avatarUpload.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const compressed = await compressImageFile(file, 256);
+        applyContactPfp(compressed, 'Profile photo updated!');
+      } catch (err) {
+        showToast('Could not read that image');
+      }
+    });
+
+    // Generic Edit Modal
+    const editModal = document.getElementById('editModal');
+    const editModalTitle = document.getElementById('editModalTitle');
+    const editModalFields = document.getElementById('editModalFields');
+    let onEditModalSave = null;
+
+    function openNicknameEditor() {
+      const chat = getActiveChat();
+      editModalTitle.textContent = 'Update Nickname';
+      editModalFields.innerHTML = `
+        <div>
+          <label class="block text-xs text-white/70 mb-1">Your Nickname</label>
+          <input id="nickInput" type="text" value="${escapeHTML(chat.nickname)}" class="w-full px-3.5 py-2.5 rounded-xl bg-white/10 text-white text-sm border border-white/15 focus:outline-none" />
+        </div>`;
+      onEditModalSave = () => {
+        const val = document.getElementById('nickInput').value.trim();
+        if (val) { chat.nickname = val; saveAppState(); renderChat(false); showToast('Nickname updated 💕'); }
+      };
+      editModal.classList.remove('hidden');
+    }
+
+    function openContactEditor() {
+      const chat = getActiveChat();
+      settingsBackdrop.classList.add('hidden');
+      editModalTitle.textContent = 'Edit Chat Profile';
+      editModalFields.innerHTML = `
+        <div>
+          <label class="block text-xs text-white/70 mb-1">Display Name</label>
+          <input id="cNameIn" type="text" value="${escapeHTML(chat.name)}" class="w-full px-3.5 py-2.5 rounded-xl bg-white/10 text-white text-sm border border-white/15 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs text-white/70 mb-1">Handle</label>
+          <input id="cHandleIn" type="text" value="${escapeHTML(chat.handle)}" class="w-full px-3.5 py-2.5 rounded-xl bg-white/10 text-white text-sm border border-white/15 focus:outline-none" />
+        </div>`;
+      onEditModalSave = () => {
+        const n = document.getElementById('cNameIn').value.trim();
+        const h = document.getElementById('cHandleIn').value.trim();
+        if (n) chat.name = n;
+        if (h) chat.handle = h;
+        saveAppState();
+        updateChatHeader();
+        renderInbox();
+        showToast('Chat profile updated!');
+      };
+      editModal.classList.remove('hidden');
+    }
+
+    function openYourNoteEditor() {
+      editModalTitle.textContent = 'Share a 24h Note';
+      editModalFields.innerHTML = `
+        <div>
+          <label class="block text-xs text-white/70 mb-1">What’s on your mind? (up to 40 chars)</label>
+          <input id="yourNoteIn" type="text" maxlength="40" value="${escapeHTML(state.yourNote)}" placeholder="listening to lofi 🌙" class="w-full px-3.5 py-2.5 rounded-xl bg-white/10 text-white text-sm border border-white/15 focus:outline-none" />
+        </div>`;
+      onEditModalSave = () => {
+        state.yourNote = document.getElementById('yourNoteIn').value.trim();
+        state.yourNoteUpdatedAt = Date.now();
+        saveAppState();
+        renderNotesRow();
+        showToast(state.yourNote ? 'Note shared for 24h ✨' : 'Note cleared');
+      };
+      editModal.classList.remove('hidden');
+    }
+
+    document.getElementById('editContactInfoBtn').addEventListener('click', openContactEditor);
+    document.getElementById('headerProfileText').addEventListener('click', openSettingsSheet);
+    document.getElementById('editModalCancel').addEventListener('click', () => editModal.classList.add('hidden'));
+    document.getElementById('editModalSave').addEventListener('click', () => {
+      if (onEditModalSave) onEditModalSave();
+      editModal.classList.add('hidden');
+    });
+
+    // Custom DM Creator Modal
+    const newDmModal = document.getElementById('newDmModal');
+    document.getElementById('openNewDmBtn').addEventListener('click', () => {
+      document.getElementById('newDmName').value = '';
+      document.getElementById('newDmHandle').value = '';
+      document.getElementById('newDmPfpUrl').value = '';
+      newDmModal.classList.remove('hidden');
+    });
+    document.getElementById('closeNewDmBtn').addEventListener('click', () => newDmModal.classList.add('hidden'));
+    document.getElementById('createNewDmConfirm').addEventListener('click', () => {
+      const name = document.getElementById('newDmName').value.trim();
+      if (!name) return showToast('Enter a display name');
+      const handle = document.getElementById('newDmHandle').value.trim() || name.toLowerCase().replace(/[^a-z0-9]/g, '') + '_';
+      const persona = document.getElementById('newDmPersona').value;
+      const theme = document.getElementById('newDmTheme').value;
+      const pfpUrl = document.getElementById('newDmPfpUrl').value.trim() || null;
+
+      const id = 'custom_' + Date.now();
+      state.chats.unshift({
+        id, name, handle, persona, theme,
+        category: 'primary', note: 'online ✨', nickname: 'Bestie',
+        avatarStyle: persona, avatarDataUrl: pfpUrl, mood: 'Chill',
+        unread: 0, lastSeenSentId: null, cadence: makeCadence(),
+        messages: [
+          { id: id + '_t', sender: 'divider', text: 'Just now', createdAt: Date.now(), isStarter: true },
+          { id: id + '_m1', sender: 'received', type: 'text', text: 'heyy! finally texted me 👀', reaction: null, createdAt: Date.now(), isStarter: true }
+        ]
+      });
+      saveAppState();
+      newDmModal.classList.add('hidden');
+      openChat(id);
+      showToast(`Started DM with ${name}`);
+    });
+
+    // Photo sharing from the Instagram-style composer
+    const chatPhotoUpload = document.getElementById('chatPhotoUpload');
+    function openChatPhotoPicker() {
+      chatPhotoUpload.value = '';
+      chatPhotoUpload.click();
+    }
+    function compressChatPhoto(file, maxEdge = 1200) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Could not read photo'));
+        reader.onload = event => {
+          const img = new Image();
+          img.onerror = () => reject(new Error('Unsupported image'));
+          img.onload = () => {
+            const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.78));
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    chatPhotoUpload.addEventListener('change', async event => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) return showToast('Choose an image file');
+      if (file.size > 15 * 1024 * 1024) return showToast('Choose a photo under 15 MB');
+      try {
+        const imageDataUrl = await compressChatPhoto(file);
+        const chat = getActiveChat();
+        if (!chat) return;
+        chat.messages.push({
+          id: 'photo_' + Date.now(), sender: 'sent', type: 'image',
+          imageDataUrl, caption: '', reaction: null, createdAt: Date.now(), isNew: true
+        });
+        saveAppState();
+        renderChat(true);
+        renderInbox();
+        resetInactivityTimer();
+        runAIResponse(chat.id, 'I shared a photo with you. React naturally to the photo if you can.', { forceReel: false, isAutoContinue: false });
+      } catch (error) {
+        showToast('Could not load that photo. Try another image.');
+      }
+      chatPhotoUpload.value = '';
+    });
+
+    // =========================================================================
+    // 15. INPUT BAR, DESKTOP VIEW TOGGLE, INBOX FILTERS & BOOTSTRAP
+    // =========================================================================
+    const messageInput = document.getElementById('messageInput');
+    const emptyInputIcons = document.getElementById('emptyInputIcons');
+    const sendBtn = document.getElementById('sendBtn');
+    const quickMenu = document.getElementById('quickMenu');
+    const leftActionBtn = document.getElementById('leftActionBtn');
+
+    function syncInputControls() {
+      messageInput.style.height = 'auto';
+      messageInput.style.height = Math.min(messageInput.scrollHeight, 96) + 'px';
+      const hasText = messageInput.value.trim().length > 0;
+      emptyInputIcons.classList.toggle('hidden', hasText);
+      sendBtn.classList.toggle('hidden', !hasText);
+      sendBtn.classList.toggle('flex', hasText);
+    }
+
+    function sendUserMessage(rawText) {
+      const text = rawText.trim();
+      const chat = getActiveChat();
+      if (!text || !chat) return;
+
+      const newMsg = {
+        id: 'u_' + Date.now(),
+        sender: 'sent',
+        type: 'text',
+        text,
+        reaction: null,
+        createdAt: Date.now(),
+        isNew: true
+      };
+
+      if (state.replyingTo) {
+        newMsg.replyTo = {
+          label: 'You replied',
+          text: state.replyingTo.type === 'reel' ? `Reel by @${state.replyingTo.reel.handle}` : state.replyingTo.text,
+          isOriginalSent: state.replyingTo.sender === 'sent'
+        };
+        clearReply();
+      }
+
+      chat.messages.push(newMsg);
+      messageInput.value = '';
+      syncInputControls();
+      saveAppState();
+      renderChat(true);
+      renderInbox();
+      resetInactivityTimer();
+
+      runAIResponse(chat.id, text, { forceReel: false, isAutoContinue: false });
+    }
+
+    messageInput.addEventListener('input', () => { syncInputControls(); resetInactivityTimer(); });
+    messageInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendUserMessage(messageInput.value); }
+    });
+    document.getElementById('chatForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      sendUserMessage(messageInput.value);
+    });
+
+    document.getElementById('quickHeartStickerBtn').addEventListener('click', () => sendUserMessage('❤️'));
+    document.getElementById('backToInboxBtn').addEventListener('click', openInbox);
+
+    leftActionBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      updateCadenceBadge();
+      quickMenu.classList.toggle('hidden');
+    });
+
+    document.getElementById('forceReelBtn').addEventListener('click', () => {
+      quickMenu.classList.add('hidden');
+      const chat = getActiveChat();
+      if (chat) runAIResponse(chat.id, 'send a cute reel rn', { forceReel: true });
+    });
+
+    document.getElementById('headerBlendBtn').addEventListener('click', () => {
+      const chat = getActiveChat();
+      if (chat) {
+        showToast('Blending a Reel together ✨');
+        runAIResponse(chat.id, 'send a cute reel rn', { forceReel: true });
+      }
+    });
+
+    // Desktop Full Mobile View Toggle
+    document.getElementById('desktopViewToggle').addEventListener('click', () => {
+      const frame = document.getElementById('app');
+      const expanded = frame.classList.toggle('desktop-expanded');
+      document.getElementById('desktopViewToggleText').textContent = expanded ? 'Standard Frame' : 'Full Mobile View';
+    });
+
+    // Inbox Search & Tabs
+    const inboxSearchInput = document.getElementById('inboxSearchInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    inboxSearchInput.addEventListener('input', () => {
+      state.searchQuery = inboxSearchInput.value;
+      clearSearchBtn.classList.toggle('hidden', !state.searchQuery);
+      renderThreadList();
+    });
+    clearSearchBtn.addEventListener('click', () => {
+      inboxSearchInput.value = '';
+      state.searchQuery = '';
+      clearSearchBtn.classList.add('hidden');
+      renderThreadList();
+    });
+
+    document.querySelectorAll('.inbox-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.inboxTab = btn.dataset.tab;
+        document.querySelectorAll('.inbox-tab-btn').forEach(b => {
+          const active = b.dataset.tab === state.inboxTab;
+          b.className = `inbox-tab-btn px-4 py-1.5 rounded-xl text-[13px] font-semibold transition ${active ? 'bg-white text-black' : 'bg-[#262626] text-white/90'}`;
+        });
+        renderThreadList();
+      });
+    });
+
+    // Global click outside dismissal
+    document.addEventListener('click', (e) => {
+      if (!quickMenu.contains(e.target) && !leftActionBtn.contains(e.target)) {
+        quickMenu.classList.add('hidden');
+      }
+      if (!document.getElementById('emojiPickerPopover').contains(e.target)) {
+        hideEmojiPicker();
+      }
+    });
+
+    window.onload = function () {
+      loadAppState();
+      const activeChat = getActiveChat();
+      document.getElementById('chatScreen').setAttribute('data-theme', activeChat.theme || 'love');
+      renderThemeWallpaper(activeChat.theme || 'love');
+      document.getElementById('inboxScreen').classList.add('pushed-back');
+      document.getElementById('chatScreen').classList.add('active');
+
+      updateChatHeader();
+      updateCadenceBadge();
+      syncInputControls();
+      renderInbox();
+      renderChat(true);
+
+      requestAnimationFrame(animateAllReels);
+      resetInactivityTimer();
+      startBackgroundDmLoop();
+      setInterval(pruneExpired24hMessages, 60000);
+    };
+  </script>
+</body>
+</html>

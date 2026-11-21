@@ -1,0 +1,9 @@
+{
+  "name": "instagram-dm-gpt-friend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Instagram-style Banglish male best-friend DM app powered by OpenAI GPT",
+  "engines": { "node": ">=18" },
+  "dependencies": { "openai": "^5.20.0" },
+  "scripts": { "dev": "vercel dev" }
+}
